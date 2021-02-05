@@ -6,23 +6,27 @@
 # the LICENSE.txt file in the root directory of this source tree.
 
 import numpy as np
-from numpy.linalg import norm
 
 from qiskit import ClassicalRegister
 from qiskit.compiler import assemble, transpile
 from qiskit import execute
 from qiskit import QuantumCircuit
 from qiskit import QuantumRegister
+from qiskit.quantum_info import Operator, Statevector
+from qiskit.quantum_info.operators.predicates import matrix_equal
 
-from qiskit.providers.aer.pulse.duffing_model_generators import duffing_system_model
-from qiskit.pulse import Schedule, Acquire
-from qiskit.pulse.channels import (DriveChannel, AcquireChannel, MemorySlot)
-from qiskit.pulse.commands.parametric_pulses import Gaussian
+from qiskit.providers.aer.pulse.system_models.duffing_model_generators import duffing_system_model
+from qiskit.pulse import (Schedule, Play, Acquire, Waveform, DriveChannel, AcquireChannel,
+                          MemorySlot)
 
 from qiskit.providers.aer import QasmSimulator
 from qiskit.providers.aer import StatevectorSimulator
 from qiskit.providers.aer import UnitarySimulator
 from qiskit.providers.aer import PulseSimulator
+
+# Backwards compatibility for Terra <= 0.13
+if not hasattr(QuantumCircuit, 'i'):
+    QuantumCircuit.i = QuantumCircuit.iden
 
 
 def assertAlmostEqual(first, second, places=None, msg=None,
@@ -114,7 +118,7 @@ def grovers_circuit(final_measure=True, allow_sampling=True):
         circuit.measure(qr[1], cr[1])
     if not allow_sampling:
         circuit.barrier(qr)
-        circuit.iden(qr)
+        circuit.i(qr)
     circuits.append(circuit)
 
     return circuits
@@ -379,34 +383,38 @@ def cx_gate_unitary_deterministic():
 
 
 def compare_statevector(result, circuits, targets,
-                        global_phase=True, places=None):
+                        ignore_phase=False, atol=1e-8, rtol=1e-5):
     """Compare final statevectors to targets."""
     for pos, test_case in enumerate(zip(circuits, targets)):
         circuit, target = test_case
-        output = result.get_statevector(circuit)
-        msg = ("Circuit ({}/{}):".format(pos + 1, len(circuits)) +
-               " {} != {}".format(output, target))
-        assertAlmostEqual(norm(output - target), 0, places=places,
-                          msg=msg)
+        target = Statevector(target)
+        output = Statevector(result.get_statevector(circuit))
+        equiv = matrix_equal(output.data, target.data,
+                             ignore_phase=ignore_phase,
+                             atol=atol, rtol=rtol)
+        if equiv:
+            return
+        msg = "Circuit ({}/{}): {} != {}".format(
+            pos + 1, len(circuits), output.data, target.data)
+        raise Exception(msg)
 
 
 def compare_unitary(result, circuits, targets,
-                    global_phase=True, places=None):
+                    ignore_phase=False, atol=1e-8, rtol=1e-5):
     """Compare final unitary matrices to targets."""
     for pos, test_case in enumerate(zip(circuits, targets)):
         circuit, target = test_case
-        output = result.get_unitary(circuit)
-        msg = ("Circuit ({}/{}):".format(pos + 1, len(circuits)) +
-               " {} != {}".format(output, target))
-        if (global_phase):
-            # Test equal including global phase
-            assertAlmostEqual(norm(output - target), 0,
-                              places=places, msg=msg)
-        else:
-            # Test equal ignorning global phase
-            delta = np.trace(
-                np.dot(np.conj(np.transpose(output)), target)) - len(output)
-            assertAlmostEqual(delta, 0, places=places)
+        target = Operator(target)
+        output = Operator(result.get_unitary(circuit))
+        equiv = matrix_equal(output.data, target.data,
+                             ignore_phase=ignore_phase,
+                             atol=atol, rtol=rtol)
+        if equiv:
+            return
+        msg = "Circuit ({}/{}): {} != {}".format(
+            pos + 1, len(circuits), output.data, target.data)
+        raise Exception(msg)
+
 
 def model_and_pi_schedule():
     """Return a simple model and schedule for pulse simulation"""
@@ -415,27 +423,23 @@ def model_and_pi_schedule():
     model = duffing_system_model(dim_oscillators=2,
                                  oscillator_freqs=[5.0],
                                  anharm_freqs=[0],
-                                 drive_strengths=[1.0],
+                                 drive_strengths=[0.01],
                                  coupling_dict={},
                                  dt=1.0)
 
-    # construct Schedule
-    schedule = Schedule(name='test_sched')
-
     # note: parameters set so that area under curve is 1/4
-    gauss_pulse = Gaussian(duration=10,
-                amp=(1.0/4)/2.506627719963857,
-                sigma=1)
+    sample_pulse = Waveform(np.ones(50))
+
+    # construct schedule
     schedule = Schedule(name='test_sched')
-    schedule |= gauss_pulse(DriveChannel(0))
-    acq_cmd = Acquire(duration=10)
-    schedule += acq_cmd(AcquireChannel(0), MemorySlot(0)) << schedule.duration
+    schedule |= Play(sample_pulse, DriveChannel(0))
+    schedule += Acquire(10, AcquireChannel(0), MemorySlot(0)) << schedule.duration
 
     return model, schedule
 
 if __name__ == '__main__':
     # Run qasm simulator
-    shots = 2000
+    shots = 4000
     circuits = grovers_circuit(final_measure=True, allow_sampling=True)
     targets = [{'0x0': 5 * shots / 8, '0x1': shots / 8,
                 '0x2': shots / 8, '0x3': shots / 8}]
@@ -474,7 +478,7 @@ if __name__ == '__main__':
                     meas_level=1,
                     meas_return='avg',
                     shots=1)
-    results = backend_sim.run(qobj, system_model).result()
+    results = backend_sim.run(qobj, system_model=system_model).result()
     state = results.get_statevector(0)
-    assertAlmostEqual(state[0], 0, delta=10**-5)
-    assertAlmostEqual(state[1], -1j, delta=10**-5)
+    assertAlmostEqual(state[0], 0, delta=10**-3)
+    assertAlmostEqual(state[1], -1j, delta=10**-3)

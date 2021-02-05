@@ -36,33 +36,33 @@ class QasmResetTests:
         targets = ref_reset.reset_counts_deterministic(shots)
         qobj = assemble(circuits, self.SIMULATOR, shots=shots)
         result = self.SIMULATOR.run(
-            qobj, backend_options=self.BACKEND_OPTS).result()
-        self.assertTrue(getattr(result, 'success', False))
+            qobj, **self.BACKEND_OPTS).result()
+        self.assertSuccess(result)
         self.compare_counts(result, circuits, targets, delta=0)
 
     def test_reset_nondeterministic(self):
         """Test QasmSimulator reset with for circuits with non-deterministic counts"""
         # For statevector output we can combine deterministic and non-deterministic
         # count output circuits
-        shots = 2000
+        shots = 4000
         circuits = ref_reset.reset_circuits_nondeterministic(
             final_measure=True)
         targets = ref_reset.reset_counts_nondeterministic(shots)
         qobj = assemble(circuits, self.SIMULATOR, shots=shots)
         result = self.SIMULATOR.run(
-            qobj, backend_options=self.BACKEND_OPTS).result()
-        self.assertTrue(getattr(result, 'success', False))
+            qobj, **self.BACKEND_OPTS).result()
+        self.assertSuccess(result)
         self.compare_counts(result, circuits, targets, delta=0.05 * shots)
 
     def test_reset_sampling_opt(self):
         """Test sampling optimization"""
-        shots = 2000
+        shots = 4000
         circuits = ref_reset.reset_circuits_sampling_optimization()
         targets = ref_reset.reset_counts_sampling_optimization(shots)
         qobj = assemble(circuits, self.SIMULATOR, shots=shots)
         result = self.SIMULATOR.run(
-            qobj, backend_options=self.BACKEND_OPTS).result()
-        self.assertTrue(getattr(result, 'success', False))
+            qobj, **self.BACKEND_OPTS).result()
+        self.assertSuccess(result)
         self.compare_counts(result, circuits, targets, delta=0.05 * shots)
 
     def test_repeated_resets(self):
@@ -72,6 +72,18 @@ class QasmResetTests:
         targets = ref_reset.reset_counts_repeated(shots)
         qobj = assemble(circuits, self.SIMULATOR, shots=shots)
         result = self.SIMULATOR.run(
-            qobj, backend_options=self.BACKEND_OPTS).result()
-        self.assertTrue(getattr(result, 'success', False))
+            qobj, **self.BACKEND_OPTS).result()
+        self.assertSuccess(result)
         self.compare_counts(result, circuits, targets, delta=0)
+
+    def test_reset_moving_qubits(self):
+        """Test QasmSimulator reset with for circuits where qubits have moved"""
+        # count output circuits
+        shots = 1000
+        circuits = ref_reset.reset_circuits_with_entangled_and_moving_qubits(final_measure=True)
+        targets = ref_reset.reset_counts_with_entangled_and_moving_qubits(shots)
+        qobj = assemble(circuits, self.SIMULATOR, shots=shots)
+        result = self.SIMULATOR.run(
+            qobj, **self.BACKEND_OPTS).result()
+        self.assertSuccess(result)
+        self.compare_counts(result, circuits, targets, delta=0.05*shots)

@@ -33,13 +33,16 @@ public:
   void optimize_circuit(Circuit& circ,
                         Noise::NoiseModel& noise,
                         const Operations::OpSet &opset,
-                        ExperimentData &data) const override;
+                        ExperimentResult &result) const override;
+
+  uint_t get_num_truncate_qubits(const Circuit& circ,
+                          const Noise::NoiseModel& noise) const;
 
 private:
-  // check this optimization can be applied
+  // check if this optimization can be applied
   bool can_apply(const Circuit& circ) const;
 
-  // check this optimization can be applied
+  // check if this optimization can be applied
   bool can_apply(const Operations::Op& op) const;
 
   // Generate a list of qubits that are used in the input circuit and noise model
@@ -80,7 +83,7 @@ void TruncateQubits::set_config(const json_t &config) {
 void TruncateQubits::optimize_circuit(Circuit& circ,
                                       Noise::NoiseModel& noise,
                                       const Operations::OpSet &allowed_opset,
-                                      ExperimentData &data) const {
+                                      ExperimentResult &result) const {
   
   // Check if circuit operations allow remapping
   // Remapped circuits must return the same output data as the
@@ -112,11 +115,18 @@ void TruncateQubits::optimize_circuit(Circuit& circ,
   noise.remap_qubits(mapping);
 
   if (verbose_) {
-    json_t truncate_metadata;
-    truncate_metadata["active_qubits"] = active_qubits;
-    truncate_metadata["mapping"] = mapping;
-    data.add_metadata("truncate_qubits", truncate_metadata);
+    result.metadata.add(active_qubits, "truncate_qubits", "active_qubits");
+    result.metadata.add(mapping, "truncate_qubits", "mapping");
   }
+}
+
+uint_t TruncateQubits::get_num_truncate_qubits(const Circuit& circ,
+                          const Noise::NoiseModel& noise) const
+{
+  if(!active_ || !can_apply(circ))
+    return circ.num_qubits;
+  reg_t active_qubits = get_active_qubits(circ, noise);
+  return active_qubits.size();
 }
 
 reg_t TruncateQubits::get_active_qubits(const Circuit& circ,
@@ -151,7 +161,7 @@ reg_t TruncateQubits::get_active_qubits(const Circuit& circ,
     }
   }
 
-  // Erase unused qubits for the list
+  // Erase unused qubits from the list
   active_qubits.erase(std::remove(active_qubits.begin(), active_qubits.end(), not_used),
                 active_qubits.end());
   return active_qubits;
@@ -163,7 +173,7 @@ TruncateQubits::generate_mapping(const reg_t& active_qubits,
                                  const Noise::NoiseModel& noise) const {
   // Convert to mapping
   mapping_t mapping;
-  for (const auto & qubit : active_qubits) {
+  for (const auto &qubit : active_qubits) {
     size_t new_qubit = std::distance(active_qubits.begin(),
                                      find(active_qubits.begin(),
                                      active_qubits.end(), qubit));

@@ -21,23 +21,20 @@ from qiskit import QuantumCircuit, assemble, execute
 from qiskit.providers.aer import AerProvider, QasmSimulator
 from qiskit.providers.aer import AerError
 
+# Backwards compatibility for Terra <= 0.13
+if not hasattr(QuantumCircuit, 'i'):
+    QuantumCircuit.i = QuantumCircuit.iden
+
 
 def is_method_available(backend, method):
     """Check if input method is available for the qasm simulator."""
-    # Simple test circuit that should work on all simulators.
     if isinstance(backend, str):
         backend = AerProvider().get_backend(backend)
-    dummy_circ = QuantumCircuit(1)
-    dummy_circ.iden(0)
-    qobj = assemble(dummy_circ, optimization_level=0)
-    backend_options = {"method": method}
-    try:
-        job = backend.run(qobj, backend_options=backend_options)
-        result = job.result()
-        return result.success
-    except AerError:
+    avail = backend.available_methods();
+    if method in avail:
+        return True
+    else:
         return False
-    return True
 
 
 def requires_method(backend, method):

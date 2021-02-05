@@ -16,11 +16,18 @@ UnitarySimulator Integration Tests
 import unittest
 from test.terra import common
 from test.terra.decorators import requires_method
-# Basic circuit instruction tests
+
 from test.terra.backends.unitary_simulator.unitary_basics import UnitarySimulatorTests
+from test.terra.backends.unitary_simulator.unitary_snapshot import UnitarySnapshotTests
+from test.terra.backends.unitary_simulator.unitary_fusion import UnitaryFusionTests
+from test.terra.backends.unitary_simulator.unitary_gates import UnitaryGateTests
 
 
-class TestUnitarySimulator(common.QiskitAerTestCase, UnitarySimulatorTests):
+class TestUnitarySimulator(common.QiskitAerTestCase,
+                           UnitaryGateTests,
+                           UnitarySimulatorTests,
+                           UnitarySnapshotTests,
+                           UnitaryFusionTests):
     """UnitarySimulator automatic method tests."""
 
     BACKEND_OPTS = {"seed_simulator": 2113}
@@ -28,7 +35,9 @@ class TestUnitarySimulator(common.QiskitAerTestCase, UnitarySimulatorTests):
 
 @requires_method("unitary_simulator", "unitary_gpu")
 class TestUnitarySimulatorThrustGPU(common.QiskitAerTestCase,
-                                    UnitarySimulatorTests):
+                                    UnitaryGateTests,
+                                    UnitarySimulatorTests,
+                                    UnitaryFusionTests):
     """UnitarySimulator unitary_gpu method tests."""
 
     BACKEND_OPTS = {"seed_simulator": 2113, "method": "unitary_gpu"}
@@ -36,7 +45,9 @@ class TestUnitarySimulatorThrustGPU(common.QiskitAerTestCase,
 
 @requires_method("unitary_simulator", "unitary_thrust")
 class TestUnitarySimulatorThrustCPU(common.QiskitAerTestCase,
-                                    UnitarySimulatorTests):
+                                    UnitaryGateTests,
+                                    UnitarySimulatorTests,
+                                    UnitaryFusionTests):
     """UnitarySimulator unitary_thrust method tests."""
 
     BACKEND_OPTS = {"seed_simulator": 2113, "method": "unitary_thrust"}

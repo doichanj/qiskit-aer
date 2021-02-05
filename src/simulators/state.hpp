@@ -16,12 +16,18 @@
 #define _aer_base_state_hpp_
 
 #include "framework/json.hpp"
-#include "framework/operations.hpp"
+#include "framework/opset.hpp"
 #include "framework/types.hpp"
 #include "framework/creg.hpp"
-#include "framework/results/experiment_data.hpp"
+#include "framework/results/experiment_result.hpp"
 
 namespace AER {
+
+// Result data subtypes
+enum class DataSubType {
+  single, list, c_list, accum, c_accum, average, c_average
+};
+
 namespace Base {
 
 //=========================================================================
@@ -33,8 +39,53 @@ class State {
 
 public:
   using ignore_argument = void;
-  State() = default;
+
+  //-----------------------------------------------------------------------
+  // Constructors
+  //-----------------------------------------------------------------------
+
+  // The constructor arguments are used to initialize the OpSet
+  // for the State class for checking supported simulator Operations
+  //
+  // Standard OpTypes that can be included here are:
+  // - `OpType::gate` if gates are supported
+  // - `OpType::measure` if measure is supported
+  // - `OpType::reset` if reset is supported
+  // - `OpType::snapshot` if any snapshots are supported
+  // - `OpType::barrier` if barrier is supported
+  // - `OpType::matrix` if arbitrary unitary matrices are supported
+  // - `OpType::kraus` if general Kraus noise channels are supported
+  //
+  // For gate ops allowed gates are specified by a set of string names,
+  // for example this could include {"u1", "u2", "u3", "U", "cx", "CX"}
+  //
+  // For snapshot ops allowed snapshots are specified by a set of string names,
+  // For example this could include {"probabilities", "pauli_observable"}
+
+  State(const Operations::OpSet &opset) : opset_(opset) {}
+
+  State(const Operations::OpSet::optypeset_t &optypes,
+        const stringset_t &gates,
+        const stringset_t &snapshots)
+    : State(Operations::OpSet(optypes, gates, snapshots)) {};
+
   virtual ~State() = default;
+
+  //-----------------------------------------------------------------------
+  // Data accessors
+  //-----------------------------------------------------------------------
+
+  // Return the state qreg object
+  auto &qreg() { return qreg_; }
+  const auto &qreg() const { return qreg_; }
+
+  // Return the state creg object
+  auto &creg() { return creg_; }
+  const auto &creg() const { return creg_; }
+
+  // Return the state opset object
+  auto &opset() { return opset_; }
+  const auto &opset() const { return opset_; }
 
   //=======================================================================
   // Subclass Override Methods
@@ -54,36 +105,18 @@ public:
   // Return a string name for the State type
   virtual std::string name() const = 0;
 
-  // Return the set of qobj instruction types supported by the State
-  // by the Operations::OpType enum class.
-  // Standard OpTypes that can be included here are:
-  // - `OpType::gate` if gates are supported
-  // - `OpType::measure` if measure is supported
-  // - `OpType::reset` if reset is supported
-  // - `OpType::snapshot` if any snapshots are supported
-  // - `OpType::barrier` if barrier is supported
-  // - `OpType::matrix` if arbitrary unitary matrices are supported
-  // - `OpType::kraus` if general Kraus noise channels are supported
-  // For the case of gates the specific allowed gates are checked
-  // with the `allowed_gates` function.
-  virtual Operations::OpSet::optypeset_t allowed_ops() const = 0;
-
-  // Return the set of qobj gate instruction names supported by the state class
-  // For example this could include {"u1", "u2", "u3", "U", "cx", "CX"}
-  virtual stringset_t allowed_gates() const = 0;
-
-  // Return the set of qobj gate instruction names supported by the state class
-  // For example this could include {"probabilities", "pauli_observable"}
-  virtual stringset_t allowed_snapshots() const = 0;
-
   // Apply a sequence of operations to the current state of the State class.
   // It is up to the State subclass to decide how this sequence should be
   // executed (ie in sequence, or some other execution strategy.)
-  // If this sequence contains operations not in allowed_operations
+  // If this sequence contains operations not in the supported opset
   // an exeption will be thrown.
+  // The `final_ops` flag indicates no more instructions will be applied
+  // to the state after this sequence, so the state can be modified at the
+  // end of the instructions.
   virtual void apply_ops(const std::vector<Operations::Op> &ops,
-                         ExperimentData &data,
-                         RngEngine &rng)  = 0;
+                         ExperimentResult &result,
+                         RngEngine &rng,
+                         bool final_ops = false)  = 0;
 
   // Initializes the State to the default state.
   // Typically this is the n-qubit all |0> state
@@ -98,12 +131,25 @@ public:
                                     const std::vector<Operations::Op> &ops)
                                     const = 0;
 
+  //memory allocation (previously called before inisitalize_qreg)
+  virtual void allocate(uint_t num_qubits)
+  {
+  }
+
   //-----------------------------------------------------------------------
   // Optional: Load config settings
   //-----------------------------------------------------------------------
 
   // Load any settings for the State class from a config JSON
   virtual void set_config(const json_t &config);
+
+  //-----------------------------------------------------------------------
+  // Optional: Add information to metadata 
+  //-----------------------------------------------------------------------
+
+  // Every state can add information to the metadata structure
+  virtual void add_metadata(ExperimentResult &result) const {
+  }
 
   //-----------------------------------------------------------------------
   // Optional: measurement sampling
@@ -119,26 +165,6 @@ public:
   virtual std::vector<reg_t> sample_measure(const reg_t &qubits,
                                             uint_t shots,
                                             RngEngine &rng);
-
-  //=======================================================================
-  // Standard Methods
-  //
-  // Typically these methods do not need to be modified for a State
-  // subclass, but can be should it be necessary.
-  //=======================================================================
-
-  //-----------------------------------------------------------------------
-  // OpSet validation
-  //-----------------------------------------------------------------------
-
-  // Return false if an OpSet contains unsupported instruction for
-  // the state class. Otherwise return true.
-  virtual bool validate_opset(const Operations::OpSet& opset) const;
-
-  // Raise an exeption if the OpSet contains unsupported
-  // instructions for the state class. The exception message
-  // contains the name of the unsupported instructions.
-  virtual std::string invalid_opset_message(const Operations::OpSet& opset) const;
 
   //=======================================================================
   // Standard non-virtual methods
@@ -159,8 +185,50 @@ public:
                        const std::string &memory_hex,
                        const std::string &register_hex);
 
-  // Add current creg classical bit values to a ExperimentData container
-  void add_creg_to_data(ExperimentData &data) const;
+  //-----------------------------------------------------------------------
+  // Save result data
+  //-----------------------------------------------------------------------
+
+  // Save current value of all classical registers to result
+  // This supports DataSubTypes: c_accum (counts), list (memory)
+  // TODO: Make classical data allow saving only subset of specified clbit values
+  void save_creg(ExperimentResult &result,
+                 const std::string &key,
+                 DataSubType type = DataSubType::c_accum) const;
+              
+  // Save single shot data type. Typically this will be the value for the
+  // last shot of the simulation
+  template <class T>
+  void save_data_single(ExperimentResult &result,
+                        const std::string &key, const T& datum) const;
+
+  template <class T>
+  void save_data_single(ExperimentResult &result,
+                        const std::string &key, T&& datum) const;
+
+  // Save data type which can be averaged over all shots.
+  // This supports DataSubTypes: list, c_list, accum, c_accum, average, c_average
+  template <class T>
+  void save_data_average(ExperimentResult &result,
+                         const std::string &key, const T& datum,
+                         DataSubType type = DataSubType::average) const;
+
+  template <class T>
+  void save_data_average(ExperimentResult &result,
+                         const std::string &key, T&& datum,
+                         DataSubType type = DataSubType::average) const;
+  
+  // Save data type which is pershot and does not support accumulator or average
+  // This supports DataSubTypes: single, list, c_list
+  template <class T>
+  void save_data_pershot(ExperimentResult &result,
+                         const std::string &key, const T& datum,
+                         DataSubType type = DataSubType::list) const;
+
+  template <class T>
+  void save_data_pershot(ExperimentResult &result,
+                         const std::string &key, T&& datum,
+                         DataSubType type = DataSubType::list) const;
 
   //-----------------------------------------------------------------------
   // Standard snapshots
@@ -168,32 +236,31 @@ public:
 
   // Snapshot the current statevector (single-shot)
   // if type_label is the empty string the operation type will be used for the type
-  void snapshot_state(const Operations::Op &op, ExperimentData &data,
+  void snapshot_state(const Operations::Op &op, ExperimentResult &result,
                       std::string name = "") const;
 
   // Snapshot the classical memory bits state (single-shot)
-  void snapshot_creg_memory(const Operations::Op &op, ExperimentData &data,
+  void snapshot_creg_memory(const Operations::Op &op, ExperimentResult &result,
                             std::string name = "memory") const;
 
   // Snapshot the classical register bits state (single-shot)
-  void snapshot_creg_register(const Operations::Op &op, ExperimentData &data,
+  void snapshot_creg_register(const Operations::Op &op, ExperimentResult &result,
                               std::string name = "register") const;
 
+
   //-----------------------------------------------------------------------
-  // OpenMP thread settings
+  // Config Settings
   //-----------------------------------------------------------------------
 
   // Sets the number of threads available to the State implementation
   // If negative there is no restriction on the backend
   inline void set_parallalization(int n) {threads_ = n;}
 
-  //-----------------------------------------------------------------------
-  // Data accessors
-  //-----------------------------------------------------------------------
+  // Set a complex global phase value exp(1j * theta) for the state
+  void set_global_phase(const double &phase);
 
-  // Returns a const reference to the states data structure
-  inline const state_t &qreg() const {return qreg_;}
-  inline const auto &creg() const {return creg_;}
+  //set number of processes to be distributed
+  void set_distribution(uint_t nprocs){}
 
 protected:
 
@@ -203,9 +270,16 @@ protected:
   // Classical register data
   ClassicalRegister creg_;
 
+  // Opset of instructions supported by the state
+  Operations::OpSet opset_;
+
   // Maximum threads which may be used by the backend for OpenMP multithreading
   // Default value is single-threaded unless overridden
   int threads_ = 1;
+
+  // Set a global phase exp(1j * theta) for the state
+  bool has_global_phase_ = false;
+  complex_t global_phase_ = 1;
 };
 
 
@@ -218,6 +292,17 @@ void State<state_t>::set_config(const json_t &config) {
   (ignore_argument)config;
 }
 
+template <class state_t>
+void State<state_t>::set_global_phase(const double &phase_angle) {
+  if (Linalg::almost_equal(phase_angle, 0.0)) {
+    has_global_phase_ = false;
+    global_phase_ = 1;
+  }
+  else {
+    has_global_phase_ = true;
+    global_phase_ = std::exp(complex_t(0.0, phase_angle));
+  }
+}
 
 template <class state_t>
 std::vector<reg_t> State<state_t>::sample_measure(const reg_t &qubits,
@@ -226,39 +311,6 @@ std::vector<reg_t> State<state_t>::sample_measure(const reg_t &qubits,
   (ignore_argument)qubits;
   (ignore_argument)shots;
   return std::vector<reg_t>();
-}
-
-
-
-template <class state_t>
-bool State<state_t>::validate_opset(const Operations::OpSet &opset) const {
-  return opset.validate(allowed_ops(),
-                        allowed_gates(),
-                        allowed_snapshots());
-}
-
-
-
-template <class state_t>
-std::string State<state_t>::invalid_opset_message(const Operations::OpSet &opset) const {
-  // Check operations are allowed
-  auto invalid_optypes = opset.invalid_optypes(allowed_ops());
-  auto invalid_gates = opset.invalid_gates(allowed_gates());
-  auto invalid_snapshots = opset.invalid_snapshots(allowed_snapshots());
-  bool bad_instr = !invalid_optypes.empty();
-  bool bad_gates = !invalid_gates.empty();
-  bool bad_snaps = !invalid_snapshots.empty();
-  std::stringstream ss;
-  if (bad_gates)
-    ss << " invalid gate instructions: " << invalid_gates;
-  if (bad_snaps)
-    ss << " invalid snapshot instructions: " << invalid_snapshots;
-  // We can't print OpTypes so we add a note if there are invalid
-  // instructions other than gates or snapshots
-  if (bad_instr && (!bad_gates && !bad_snaps))
-    ss << " invalid non gate or snapshot instructions in opset {" << opset << "}";
-  ss << " for " << name() << " method"; 
-  return ss.str();
 }
 
 
@@ -276,21 +328,162 @@ void State<state_t>::initialize_creg(uint_t num_memory,
   creg_.initialize(num_memory, num_register, memory_hex, register_hex);
 }
 
+template <class state_t>
+void State<state_t>::save_creg(ExperimentResult &result,
+                               const std::string &key,
+                               DataSubType type) const {
+  if (creg_.memory_size() == 0)
+    return;
+  switch (type) {
+    case DataSubType::list:
+      result.data.add_list(creg_.memory_hex(), key);
+      break;
+    case DataSubType::c_accum:
+      result.data.add_accum(1ULL, key, creg_.memory_hex());
+      break;
+    default:
+      throw std::runtime_error("Invalid creg data subtype for data key: " + key);
+  }
+}
+
+template <class state_t>
+template <class T>
+void State<state_t>::save_data_average(ExperimentResult &result,
+                                       const std::string &key,
+                                       const T& datum,
+                                       DataSubType type) const {
+  switch (type) {
+    case DataSubType::single:
+      result.data.add_single(datum, key);
+      break;
+    case DataSubType::list:
+      result.data.add_list(datum, key);
+      break;
+    case DataSubType::c_list:
+      result.data.add_list(datum, key, creg_.memory_hex());
+      break;
+    case DataSubType::accum:
+      result.data.add_accum(datum, key);
+      break;
+    case DataSubType::c_accum:
+      result.data.add_accum(datum, key, creg_.memory_hex());
+      break;
+    case DataSubType::average:
+      result.data.add_average(datum, key);
+      break;
+    case DataSubType::c_average:
+      result.data.add_average(datum, key, creg_.memory_hex());
+      break;
+    default:
+      throw std::runtime_error("Invalid average data subtype for data key: " + key);
+  }
+}
+
+template <class state_t>
+template <class T>
+void State<state_t>::save_data_average(ExperimentResult &result,
+                                       const std::string &key,
+                                       T&& datum,
+                                       DataSubType type) const {
+  switch (type) {
+    case DataSubType::single:
+      result.data.add_single(std::move(datum), key);
+      break;
+    case DataSubType::list:
+      result.data.add_list(std::move(datum), key);
+      break;
+    case DataSubType::c_list:
+      result.data.add_list(std::move(datum), key, creg_.memory_hex());
+      break;
+    case DataSubType::accum:
+      result.data.add_accum(std::move(datum), key);
+      break;
+    case DataSubType::c_accum:
+      result.data.add_accum(std::move(datum), key, creg_.memory_hex());
+      break;
+    case DataSubType::average:
+      result.data.add_average(std::move(datum), key);
+      break;
+    case DataSubType::c_average:
+      result.data.add_average(std::move(datum), key, creg_.memory_hex());
+      break;
+    default:
+      throw std::runtime_error("Invalid average data subtype for data key: " + key);
+  }
+}
+
+template <class state_t>
+template <class T>
+void State<state_t>::save_data_pershot(ExperimentResult &result,
+                                       const std::string &key,
+                                       const T& datum,
+                                       DataSubType type) const {
+  switch (type) {
+  case DataSubType::single:
+    result.data.add_single(datum, key);
+    break;
+  case DataSubType::list:
+    result.data.add_list(datum, key);
+    break;
+  case DataSubType::c_list:
+    result.data.add_list(datum, key, creg_.memory_hex());
+    break;
+  default:
+    throw std::runtime_error("Invalid pershot data subtype for data key: " + key);
+  }
+}
+
+template <class state_t>
+template <class T>
+void State<state_t>::save_data_pershot(ExperimentResult &result, 
+                                       const std::string &key,
+                                       T&& datum,
+                                       DataSubType type) const {
+  switch (type) {
+    case DataSubType::single:
+      result.data.add_single(std::move(datum), key);
+      break;
+    case DataSubType::list:
+      result.data.add_list(std::move(datum), key);
+      break;
+    case DataSubType::c_list:
+      result.data.add_list(std::move(datum), key, creg_.memory_hex());
+      break;
+    default:
+      throw std::runtime_error("Invalid pershot data subtype for data key: " + key);
+  }
+}
+
+template <class state_t>
+template <class T>
+void State<state_t>::save_data_single(ExperimentResult &result,
+                                      const std::string &key,
+                                      const T& datum) const {
+  result.data.add_single(datum, key);
+}
+
+template <class state_t>
+template <class T>
+void State<state_t>::save_data_single(ExperimentResult &result,
+                                      const std::string &key,
+                                      T&& datum) const {
+  result.data.add_single(std::move(datum), key);
+}
 
 template <class state_t>
 void State<state_t>::snapshot_state(const Operations::Op &op,
-                                    ExperimentData &data,
+                                    ExperimentResult &result,
                                     std::string name) const {
   name = (name.empty()) ? op.name : name;
-  data.add_pershot_snapshot(name, op.string_params[0], qreg_);
+  result.legacy_data.add_pershot_snapshot(name, op.string_params[0], qreg_);
 }
 
 
 template <class state_t>
 void State<state_t>::snapshot_creg_memory(const Operations::Op &op,
-                                          ExperimentData &data,
+                                          ExperimentResult &result,
                                           std::string name) const {
-  data.add_pershot_snapshot(name,
+  result.legacy_data.add_pershot_snapshot(name,
                                op.string_params[0],
                                creg_.memory_hex());
 }
@@ -298,26 +491,14 @@ void State<state_t>::snapshot_creg_memory(const Operations::Op &op,
 
 template <class state_t>
 void State<state_t>::snapshot_creg_register(const Operations::Op &op,
-                                            ExperimentData &data,
+                                            ExperimentResult &result,
                                             std::string name) const {
-  data.add_pershot_snapshot(name,
+  result.legacy_data.add_pershot_snapshot(name,
                                op.string_params[0],
                                creg_.register_hex());
 }
 
 
-template <class state_t>
-void State<state_t>::add_creg_to_data(ExperimentData &data) const {
-  if (creg_.memory_size() > 0) {
-    std::string memory_hex = creg_.memory_hex();
-    data.add_memory_count(memory_hex);
-    data. add_pershot_memory(memory_hex);
-  }
-  // Register bits value
-  if (creg_.register_size() > 0) {
-    data. add_pershot_register(creg_.register_hex());
-  }
-}
 //-------------------------------------------------------------------------
 } // end namespace Base
 //-------------------------------------------------------------------------

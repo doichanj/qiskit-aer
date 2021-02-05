@@ -48,7 +48,6 @@ class TestQasmStabilizerSimulator(common.QiskitAerTestCase,
                                   QasmResetTests,
                                   QasmConditionalGateTests,
                                   QasmCliffordTests,
-                                  QasmAlgorithmTests,
                                   QasmReadoutNoiseTests,
                                   QasmResetNoiseTests,
                                   QasmPauliNoiseTests,
@@ -62,7 +61,8 @@ class TestQasmStabilizerSimulator(common.QiskitAerTestCase,
 
     BACKEND_OPTS = {
         "seed_simulator": 1337,
-        "method": "stabilizer"
+        "method": "stabilizer",
+        "max_parallel_threads": 1
     }
 
 

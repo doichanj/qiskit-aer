@@ -286,7 +286,7 @@ class NoiseTransformer:
         self.named_operators = {
             'pauli': pauli_operators(),
             'reset': reset_operators(),
-            'clifford': [{j: single_qubit_clifford_instructions(j) for j in range(24)}]
+            'clifford': [{j: single_qubit_clifford_instructions(j) for j in range(1, 24)}]
         }
         self.fidelity_data = None
         self.use_honesty_constraint = True
@@ -607,7 +607,7 @@ class NoiseTransformer:
         n = channel.rows
         M = numpy.zeros((n, n), dtype=numpy.complex_)
         for (i, j) in itertools.product(range(n), range(n)):
-            M[i, j] = numpy.complex(
+            M[i, j] = complex(
                 Poly(channel[i, j], symbol).coeff_monomial(symbol))
         return M
 
@@ -633,7 +633,7 @@ class NoiseTransformer:
         n = channel.rows
         M = numpy.zeros((n, n), dtype=numpy.complex_)
         for (i, j) in itertools.product(range(n), range(n)):
-            M[i, j] = numpy.complex(
+            M[i, j] = complex(
                 Poly(channel[i, j], symbols).coeff_monomial(1))
         return M
 
@@ -752,7 +752,7 @@ class NoiseTransformer:
         h = numpy.array(h_data).astype(float)
         x = cvxpy.Variable(n)
         prob = cvxpy.Problem(
-            cvxpy.Minimize((1 / 2) * cvxpy.quad_form(x, P) + q.T@x),
-            [G@x <= h])
+            cvxpy.Minimize((1 / 2) * cvxpy.quad_form(x, P) + q.T @ x),
+            [G @ x <= h])
         prob.solve()
         return x.value

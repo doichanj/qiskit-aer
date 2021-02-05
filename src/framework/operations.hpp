@@ -24,6 +24,7 @@
 #include "framework/types.hpp"
 #include "framework/json.hpp"
 #include "framework/utils.hpp"
+#include "framework/linalg/almost_equal.hpp"
 
 namespace AER {
 namespace Operations {
@@ -36,7 +37,8 @@ enum class RegComparison {Equal, NotEqual, Less, LessEqual, Greater, GreaterEqua
 // Enum class for operation types
 enum class OpType {
   gate, measure, reset, bfunc, barrier, snapshot,
-  matrix, multiplexer, kraus, superop, roerror, noise_switch, initialize
+  matrix, diagonal_matrix, multiplexer, kraus, superop, roerror,
+  noise_switch, initialize, sim_op, nop
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const OpType& type) {
@@ -60,7 +62,10 @@ inline std::ostream& operator<<(std::ostream& stream, const OpType& type) {
     stream << "snapshot";
     break;
   case OpType::matrix:
-    stream << "matrix";
+    stream << "unitary";
+    break;
+  case OpType::diagonal_matrix:
+    stream << "diagonal";
     break;
   case OpType::multiplexer:
     stream << "multiplexer";
@@ -79,6 +84,12 @@ inline std::ostream& operator<<(std::ostream& stream, const OpType& type) {
     break;
   case OpType::initialize:
     stream << "initialize";
+    break;
+  case OpType::sim_op:
+    stream << "sim_op";
+    break;
+  case OpType::nop:
+    stream << "nop";
     break;
   default:
     stream << "unknown";
@@ -128,6 +139,7 @@ struct Op {
                                                         // 1 x M row-matrices
                                                         // Projector vectors are stored as
                                                         // M x 1 column-matrices
+  std::vector<uint_t> params_amplitudes; // Vector of base values
 };
 
 inline std::ostream& operator<<(std::ostream& s, const Op& op) {
@@ -155,212 +167,6 @@ inline std::ostream& operator<<(std::ostream& s, const Op& op) {
   s << "]";
   return s;
 }
-
-//=========================================================================
-// OpSet Class
-//=========================================================================
-
-// This class is used to store type information about a set of operations.
-class OpSet {
-private:
-  // Hash function so that we can use an enum class as a std::unordered_set
-  // key on older C++11 compilers like GCC 5.
-  struct EnumClassHash {
-    template <typename T> size_t operator()(T t) const {
-      return static_cast<size_t>(t);
-    }
-  };
-
-public:
-  // Alias for set of OpTypes
-  using optypeset_t = std::unordered_set<Operations::OpType, EnumClassHash>;
-
-  // Public data members
-  optypeset_t optypes;     // A set of op types
-  stringset_t gates;      // A set of names for OpType::gates
-  stringset_t snapshots;  // set of types for OpType::snapshot
-
-  OpSet() = default;
-  OpSet(const std::vector<Op> &ops) {insert(ops);}
-
-  //-----------------------------------------------------------------------
-  // Insert operations to the OpSet
-  //-----------------------------------------------------------------------
-
-  // Add another opset to the current one
-  void insert(const OpSet& opset);
-
-  // Add additional op to the opset
-  void insert(const Op &op);
-  
-  // Add additional ops to the opset
-  void insert(const std::vector<Op> &ops);
-
-  //-----------------------------------------------------------------------
-  // Check if operations are in the OpSet
-  //-----------------------------------------------------------------------
-
-  // Return true if an operation is contained in the current OpSet
-  bool contains(const OpType &optype) const;
-
-  //-----------------------------------------------------------------------
-  // Validate OpSet against sets of allowed operations
-  //-----------------------------------------------------------------------
-
-  // Return True if opset ops, gates and snapshots are contained in
-  // allowed_ops, allowed_gates, allowed_snapshots
-  bool validate(const optypeset_t &allowed_ops,
-                const stringset_t &allowed_gates,
-                const stringset_t &allowed_snapshots) const;
-
-  // Return True if opset ops are contained in allowed_ops
-  bool validate_optypes(const optypeset_t &allowed_ops) const;
-
-  // Return True if opset gates are contained in allowed_gate
-  bool validate_gates(const stringset_t &allowed_gates) const;
-
-  // Return True if opset snapshots are contained in allowed_snapshots
-  bool validate_snapshots(const stringset_t &allowed_snapshots) const;
-
-  //-----------------------------------------------------------------------
-  // Return OpSet operations invalid for a set of allowed operations
-  //-----------------------------------------------------------------------
-
-  // Return a set of all invalid circuit op names
-  optypeset_t invalid_optypes(const optypeset_t &allowed_ops) const;
-
-  // Return a set of all invalid circuit op names
-  stringset_t invalid_gates(const stringset_t &allowed_gates) const;
-  
-  // Return a set of all invalid circuit op names
-  stringset_t invalid_snapshots(const stringset_t &allowed_snapshots) const;
-};
-
-inline std::ostream& operator<<(std::ostream& s, const OpSet& opset) {
-  s << "optypes={";
-  bool first = true;
-  for (OpType optype: opset.optypes) {
-    if (first)
-      first = false;
-    else
-      s << ",";
-    s << optype;
-  }
-  s << "}, gates={";
-  first = true;
-  for (const std::string& gate: opset.gates) {
-    if (first)
-      first = false;
-    else
-      s << ",";
-    s << gate;
-  }
-  s << "}, snapshots={";
-  first = true;
-  for (const std::string& snapshot: opset.snapshots) {
-    if (first)
-      first = false;
-    else
-      s << ",";
-    s << snapshot;
-  }
-  s << "}";
-  return s;
-}
-
-//------------------------------------------------------------------------------
-// OpSet class methods
-//------------------------------------------------------------------------------
-
-void OpSet::insert(const Op &op) {
-  optypes.insert(op.type);
-  if (op.type == OpType::gate)
-    gates.insert(op.name);
-  if (op.type == OpType::snapshot)
-    snapshots.insert(op.name);
-}
-
-void OpSet::insert(const std::vector<Op> &ops) {
-  for (const auto &op : ops)
-    insert(op);
-}
-
-
-void OpSet::insert(const OpSet &opset) {
-  optypes.insert(opset.optypes.begin(),
-                  opset.optypes.end());
-  gates.insert(opset.gates.begin(),
-                opset.gates.end());
-  snapshots.insert(opset.snapshots.begin(),
-                    opset.snapshots.end());
-}
-
-bool OpSet::contains(const OpType &optype) const {
-  if (optypes.find(optype) == optypes.end())
-    return false;
-  return true;
-}
-
-bool OpSet::validate(const optypeset_t &allowed_ops,
-                     const stringset_t &allowed_gates,
-                     const stringset_t &allowed_snapshots) const {
-  return validate_optypes(allowed_ops) &&
-         validate_gates(allowed_gates) &&
-         validate_snapshots(allowed_snapshots);
-}
-
-bool OpSet::validate_optypes(const optypeset_t &allowed_ops) const {
-  for (const auto &op : optypes) {
-    if (allowed_ops.find(op) == allowed_ops.end())
-      return false;
-  }
-  return true;
-}
-
-bool OpSet::validate_gates(const stringset_t &allowed_gates) const {
-  for (const auto &gate : gates) {
-    if (allowed_gates.find(gate) == allowed_gates.end())
-      return false;
-  }
-  return true;
-}
-
-bool OpSet::validate_snapshots(const stringset_t &allowed_snapshots) const {
-  for (const auto &snap : snapshots) {
-    if (allowed_snapshots.find(snap) == allowed_snapshots.end())
-      return false;
-  }
-  return true;
-}
-
-// Return a set of all invalid circuit op names
-OpSet::optypeset_t OpSet::invalid_optypes(const optypeset_t &allowed_ops) const {
-  optypeset_t invalid;
-  for (const auto &op : optypes) {
-    if (allowed_ops.find(op) == allowed_ops.end())
-      invalid.insert(op);
-  }
-  return invalid;                    
-}
-
-stringset_t OpSet::invalid_gates(const stringset_t &allowed_gates) const {
-  stringset_t invalid;
-  for (const auto &gate : gates) {
-     if (allowed_gates.find(gate) == allowed_gates.end())
-      invalid.insert(gate);
-  }
-  return invalid;
-}
-
-stringset_t OpSet::invalid_snapshots(const stringset_t &allowed_snapshots) const {
-  stringset_t invalid;
-  for (const auto &snap : snapshots) {
-     if (allowed_snapshots.find(snap) == allowed_snapshots.end())
-      invalid.insert(snap);
-  }
-  return invalid;
-}
-
 
 //------------------------------------------------------------------------------
 // Error Checking
@@ -417,12 +223,70 @@ inline Op make_unitary(const reg_t &qubits, const cmatrix_t &mat, std::string la
   return op;
 }
 
+inline Op make_unitary(const reg_t &qubits, cmatrix_t &&mat, std::string label = "") {
+  Op op;
+  op.type = OpType::matrix;
+  op.name = "unitary";
+  op.qubits = qubits;
+  op.mats.resize(1);
+  op.mats[0] = std::move(mat);
+  if (label != "")
+    op.string_params = {label};
+  return op;
+}
+
 inline Op make_superop(const reg_t &qubits, const cmatrix_t &mat) {
   Op op;
   op.type = OpType::superop;
   op.name = "superop";
   op.qubits = qubits;
   op.mats = {mat};
+  return op;
+}
+
+inline Op make_superop(const reg_t &qubits, cmatrix_t &&mat) {
+  Op op;
+  op.type = OpType::superop;
+  op.name = "superop";
+  op.qubits = qubits;
+  op.mats.resize(1);
+  op.mats[0] = std::move(mat);
+  return op;
+}
+
+inline Op make_kraus(const reg_t &qubits, const std::vector<cmatrix_t> &mats) {
+  Op op;
+  op.type = OpType::kraus;
+  op.name = "kraus";
+  op.qubits = qubits;
+  op.mats = mats;
+  return op;
+}
+
+inline Op make_kraus(const reg_t &qubits, std::vector<cmatrix_t> &&mats) {
+  Op op;
+  op.type = OpType::kraus;
+  op.name = "kraus";
+  op.qubits = qubits;
+  op.mats = std::move(mats);
+  return op;
+}
+
+inline Op make_roerror(const reg_t &memory, const std::vector<rvector_t> &probs) {
+  Op op;
+  op.type = OpType::roerror;
+  op.name = "roerror";
+  op.memory = memory;
+  op.probs = probs;
+  return op;
+}
+
+inline Op make_roerror(const reg_t &memory, std::vector<rvector_t> &&probs) {
+  Op op;
+  op.type = OpType::roerror;
+  op.name = "roerror";
+  op.memory = memory;
+  op.probs = std::move(probs);
   return op;
 }
 
@@ -517,31 +381,13 @@ inline Op make_multiplexer(const reg_t &qubits,
   return op;
 }
 
-inline Op make_kraus(const reg_t &qubits, const std::vector<cmatrix_t> &mats) {
-  Op op;
-  op.type = OpType::kraus;
-  op.name = "kraus";
-  op.qubits = qubits;
-  op.mats = mats;
-  return op;
-}
-
-inline Op make_roerror(const reg_t &memory, const std::vector<rvector_t> &probs) {
-  Op op;
-  op.type = OpType::roerror;
-  op.name = "roerror";
-  op.memory = memory;
-  op.probs = probs;
-  return op;
-}
-
 //------------------------------------------------------------------------------
 // JSON conversion
 //------------------------------------------------------------------------------
 
 // Main JSON deserialization functions
-Op json_to_op(const json_t &js); // Patial TODO
-json_t op_to_json(const Op &op); // Patial TODO
+Op json_to_op(const json_t &js); // Partial TODO
+json_t op_to_json(const Op &op); // Partial TODO
 inline void from_json(const json_t &js, Op &op) {op = json_to_op(js);}
 inline void to_json(json_t &js, const Op &op) { js = op_to_json(op);}
 
@@ -552,15 +398,18 @@ Op json_to_op_measure(const json_t &js);
 Op json_to_op_reset(const json_t &js);
 Op json_to_op_bfunc(const json_t &js);
 Op json_to_op_initialize(const json_t &js);
+Op json_to_op_pauli(const json_t &js);
 
 // Snapshots
 Op json_to_op_snapshot(const json_t &js);
 Op json_to_op_snapshot_default(const json_t &js);
 Op json_to_op_snapshot_matrix(const json_t &js);
 Op json_to_op_snapshot_pauli(const json_t &js);
+Op json_to_op_snapshot_amplitudes(const json_t &js);
 
 // Matrices
 Op json_to_op_unitary(const json_t &js);
+Op json_to_op_diagonal(const json_t &js);
 Op json_to_op_superop(const json_t &js);
 Op json_to_op_multiplexer(const json_t &js);
 Op json_to_op_kraus(const json_t &js);
@@ -571,7 +420,7 @@ Op json_to_op_roerror(const json_t &js);
 
 // Optional instruction parameters
 enum class Allowed {Yes, No};
-void add_condtional(const Allowed val, Op& op, const json_t &js);
+void add_conditional(const Allowed val, Op& op, const json_t &js);
 
 
 //------------------------------------------------------------------------------
@@ -596,6 +445,8 @@ Op json_to_op(const json_t &js) {
   // Arbitrary matrix gates
   if (name == "unitary")
     return json_to_op_unitary(js);
+  if (name == "diagonal" || name == "diag")
+    return json_to_op_diagonal(js);
   if (name == "superop")
     return json_to_op_superop(js);
   // Snapshot
@@ -613,6 +464,8 @@ Op json_to_op(const json_t &js) {
     return json_to_op_kraus(js);
   if (name == "roerror")
     return json_to_op_roerror(js);
+   if (name == "pauli")
+    return json_to_op_pauli(js);
   // Default assume gate
   return json_to_op_gate(js);
 }
@@ -643,7 +496,7 @@ json_t op_to_json(const Op &op) {
 //------------------------------------------------------------------------------
 
 
-void add_condtional(const Allowed allowed, Op& op, const json_t &js) {
+void add_conditional(const Allowed allowed, Op& op, const json_t &js) {
   // Check conditional
   if (JSON::check_key("conditional", js)) {
     // If instruction isn't allow to be conditional throw an exception
@@ -682,7 +535,7 @@ Op json_to_op_gate(const json_t &js) {
     op.string_params = {op.name};
 
   // Conditional
-  add_condtional(Allowed::Yes, op, js);
+  add_conditional(Allowed::Yes, op, js);
 
   // Validation
   check_empty_name(op);
@@ -704,7 +557,7 @@ Op json_to_op_barrier(const json_t &js) {
   op.name = "barrier";
   JSON::get_value(op.qubits, "qubits", js);
   // Check conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
   return op;
 }
 
@@ -718,7 +571,7 @@ Op json_to_op_measure(const json_t &js) {
   JSON::get_value(op.registers, "register", js);
 
   // Conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
 
   // Validation
   check_empty_qubits(op);
@@ -740,7 +593,7 @@ Op json_to_op_reset(const json_t &js) {
   JSON::get_value(op.qubits, "qubits", js);
 
   // Conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
 
   // Validation
   check_empty_qubits(op);
@@ -757,7 +610,7 @@ Op json_to_op_initialize(const json_t &js) {
   JSON::get_value(op.params, "params", js);
 
   // Conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
 
   // Validation
   check_empty_qubits(op);
@@ -766,6 +619,31 @@ Op json_to_op_initialize(const json_t &js) {
   return op;
 }
 
+Op json_to_op_pauli(const json_t &js){
+  Op op;
+  op.type = OpType::gate;
+  op.name = "pauli";
+  JSON::get_value(op.qubits, "qubits", js);
+  JSON::get_value(op.string_params, "params", js);
+
+  // Check for optional label
+  // If label is not specified record the gate name as the label
+  std::string label;
+  JSON::get_value(label, "label", js);
+  if  (label != "")
+    op.string_params.push_back(label);
+  else
+    op.string_params.push_back(op.name);
+
+  // Conditional
+  add_conditional(Allowed::No, op, js);
+
+  // Validation
+  check_empty_qubits(op);
+  check_duplicate_qubits(op);
+
+  return op;
+}
 
 //------------------------------------------------------------------------------
 // Implementation: Boolean Functions
@@ -812,7 +690,7 @@ Op json_to_op_bfunc(const json_t &js) {
   }
 
   // Conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
 
   // Validation
   if (op.registers.empty()) {
@@ -831,7 +709,7 @@ Op json_to_op_roerror(const json_t &js) {
   JSON::get_value(op.probs, "probabilities", js); // DEPRECATED: Remove in 0.4
   JSON::get_value(op.probs, "params", js);
   // Conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
   return op;
 }
 
@@ -851,7 +729,7 @@ Op json_to_op_unitary(const json_t &js) {
   if (op.mats.size() != 1) {
     throw std::invalid_argument("\"unitary\" params must be a single matrix.");
   }
-  for (const auto mat : op.mats) {
+  for (const auto &mat : op.mats) {
     if (!Utils::is_unitary(mat, 1e-7)) {
       throw std::invalid_argument("\"unitary\" matrix is not unitary.");
     }
@@ -862,7 +740,36 @@ Op json_to_op_unitary(const json_t &js) {
   op.string_params.push_back(label);
 
   // Conditional
-  add_condtional(Allowed::Yes, op, js);
+  add_conditional(Allowed::Yes, op, js);
+  return op;
+}
+
+Op json_to_op_diagonal(const json_t &js) {
+  Op op;
+  op.type = OpType::diagonal_matrix;
+  op.name = "diagonal";
+  JSON::get_value(op.qubits, "qubits", js);
+  JSON::get_value(op.params, "params", js);
+
+  // Validation
+  check_empty_qubits(op);
+  check_duplicate_qubits(op);
+  if (op.params.size() != 1ULL << op.qubits.size()) {
+    throw std::invalid_argument("\"diagonal\" matrix is wrong size.");
+  }
+  for (const auto &val : op.params) {
+    if (!Linalg::almost_equal(std::abs(val), 1.0, 1e-7)) {
+      throw std::invalid_argument("\"diagonal\" matrix is not unitary.");
+    }
+  }
+
+  // Check for a label
+  std::string label;
+  JSON::get_value(label, "label", js);
+  op.string_params.push_back(label);
+
+  // Conditional
+  add_conditional(Allowed::Yes, op, js);
   return op;
 }
 
@@ -874,7 +781,7 @@ Op json_to_op_superop(const json_t &js) {
   JSON::get_value(op.qubits, "qubits", js);
   JSON::get_value(op.mats, "params", js);
   // Check conditional
-  add_condtional(Allowed::Yes, op, js);
+  add_conditional(Allowed::Yes, op, js);
   // Validation
   check_empty_qubits(op);
   check_duplicate_qubits(op);
@@ -895,7 +802,7 @@ Op json_to_op_multiplexer(const json_t &js) {
   // Construct op
   auto op = make_multiplexer(qubits, mats, label);
   // Conditional
-  add_condtional(Allowed::Yes, op, js);
+  add_conditional(Allowed::Yes, op, js);
   return op;
 }
 
@@ -910,7 +817,7 @@ Op json_to_op_kraus(const json_t &js) {
   check_empty_qubits(op);
   check_duplicate_qubits(op);
   // Conditional
-  add_condtional(Allowed::Yes, op, js);
+  add_conditional(Allowed::Yes, op, js);
   return op;
 }
 
@@ -921,7 +828,7 @@ Op json_to_op_noise_switch(const json_t &js) {
   op.name = "noise_switch";
   JSON::get_value(op.params, "params", js);
   // Conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
   return op;
 }
 
@@ -937,10 +844,12 @@ Op json_to_op_snapshot(const json_t &js) {
     return json_to_op_snapshot_pauli(js);
   if (snapshot_type.find("expectation_value_matrix") != std::string::npos)
     return json_to_op_snapshot_matrix(js);
+  if (snapshot_type.find("amplitudes") != std::string::npos)
+    return json_to_op_snapshot_amplitudes(js);
   // Default snapshot: has "type", "label", "qubits"
   auto op = json_to_op_snapshot_default(js);
   // Conditional
-  add_condtional(Allowed::No, op, js);
+  add_conditional(Allowed::No, op, js);
   return op;
 }
 
@@ -960,6 +869,25 @@ Op json_to_op_snapshot_default(const json_t &js) {
   return op;
 }
 
+Op json_to_op_snapshot_amplitudes(const json_t &js) {
+  // Load default snapshot parameters
+  Op op = json_to_op_snapshot_default(js);
+
+  // Check qubits are valid
+  check_empty_qubits(op);
+  check_duplicate_qubits(op);
+
+  // Get components
+  if (JSON::check_key("params", js) && js["params"].is_array()) {
+    for (complex_t base_value : js["params"]) {
+      op.params_amplitudes.emplace_back(static_cast<uint_t>(real(base_value)));
+    } 
+  } else {
+    throw std::invalid_argument("Invalid amplitudes snapshot (param component invalid");
+  }
+  return op;
+}
+
 
 Op json_to_op_snapshot_pauli(const json_t &js) {
   // Load default snapshot parameters
@@ -970,7 +898,7 @@ Op json_to_op_snapshot_pauli(const json_t &js) {
   check_duplicate_qubits(op);
 
   // Parse Pauli operator components
-  const auto threshold = 1e-10; // drop small components
+  const auto threshold = 1e-15; // drop small components
   // Get components
   if (JSON::check_key("params", js) && js["params"].is_array()) {
     for (const auto &comp : js["params"]) {
@@ -998,6 +926,15 @@ Op json_to_op_snapshot_pauli(const json_t &js) {
     } // end component loop
   } else {
     throw std::invalid_argument("Invalid Pauli snapshot \"params\".");
+  }
+  // Check edge case of all coefficients being empty
+  // In this case the operator had all coefficients zero, or sufficiently close
+  // to zero that they were all truncated.
+  if (op.params_expval_pauli.empty()) {
+    // Add a single identity op with zero coefficient
+    std::string pauli(op.qubits.size(), 'I');
+    complex_t coeff(0);
+    op.params_expval_pauli.emplace_back(coeff, pauli);
   }
   return op;
 }

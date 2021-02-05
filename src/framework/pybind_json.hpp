@@ -27,16 +27,21 @@
 #include <iostream>
 #include <map>
 #include <vector>
-
-#include <pybind11/pybind11.h>
-#include <pybind11/cast.h>
-#include <pybind11/stl.h>
-#include <pybind11/numpy.h>
-#include <pybind11/complex.h>
+#include <string>
 #include <iostream>
 #include <type_traits>
 
-#include <nlohmann_json.hpp>
+#include "misc/warnings.hpp"
+DISABLE_WARNING_PUSH
+#include <pybind11/pybind11.h>
+#include <pybind11/cast.h>
+#include <pybind11/stl.h>
+#include <pybind11/complex.h>
+#include <pybind11/numpy.h>
+
+#include <nlohmann/json.hpp>
+DISABLE_WARNING_POP
+
 #include "framework/json.hpp"
 
 namespace py = pybind11;
@@ -44,8 +49,9 @@ namespace nl = nlohmann;
 using namespace pybind11::literals;
 using json_t = nlohmann::json;
 
-#include "framework/results/result.hpp"
-#include "framework/results/data/average_data.hpp"
+//------------------------------------------------------------------------------
+// Nlohman JSON <--> Python Conversion
+//------------------------------------------------------------------------------
 
 namespace std {
 
@@ -104,59 +110,6 @@ template <typename T>
 json_t numpy_to_json_3d(py::array_t<T, py::array::c_style> arr);
 
 } //end namespace JSON
-
-//------------------------------------------------------------------------------
-// Aer C++ -> Python Conversion
-//------------------------------------------------------------------------------
-
-namespace AerToPy {
-
-/**
- * Convert a Matrix to a python object
- * @param mat is a Matrix
- * @returns a python object (py::list of lists)
- */
-template<typename T>
-py::object from_matrix(const matrix<T> &mat);
-
-/**
- * Convert a AverageData to a python object
- * @param avg_data is an AverageData
- * @returns a py::dict
- */
-template<typename T>
-py::dict from_avg_data(const AER::AverageData<T> &avg_data);
-
-/**
- * Convert a AverageSnapshot to a python object
- * @param avg_snap is an AverageSnapshot
- * @returns a py::dict
- */
-template<typename T>
-py::object from_avg_snap(const AER::AverageSnapshot<T> &avg_snap);
-
-/**
- * Convert an ExperimentData to a python object
- * @param result is an ExperimentData
- * @returns a py::dict
- */
-py::object from_exp_data(const AER::ExperimentData &result);
-
-/**
- * Convert an ExperimentResult to a python object
- * @param result is an ExperimentResult
- * @returns a py::dict
- */
-py::object from_exp_result(const AER::ExperimentResult &result);
-
-/**
- * Convert a Result to a python object
- * @param result is a Result
- * @returns a py::dict
- */
-py::object from_result(const AER::Result &result);
-
-} //end namespace AerToPy
 
 /*******************************************************************************
  *
@@ -241,7 +194,6 @@ json_t JSON::numpy_to_json_3d(py::array_t<T, py::array::c_style> arr) {
 template <typename T>
 json_t JSON::numpy_to_json(py::array_t<T, py::array::c_style> arr) {
     py::buffer_info buf = arr.request();
-    //std::cout << "buff dim: " << buf.ndim << std::endl;
 
     if (buf.ndim == 1) {
         return JSON::numpy_to_json_1d(arr);
@@ -257,38 +209,49 @@ json_t JSON::numpy_to_json(py::array_t<T, py::array::c_style> arr) {
 }
 
 void std::to_json(json_t &js, const py::handle &obj) {
-    if (py::isinstance<py::bool_>(obj)) {
+    if (py::isinstance<py::float_>(obj)) {
+        js = obj.cast<nl::json::number_float_t>();
+    } else if (py::isinstance<py::bool_>(obj)) {
         js = obj.cast<nl::json::boolean_t>();
-        //js = obj.cast<bool>();
     } else if (py::isinstance<py::int_>(obj)) {
         js = obj.cast<nl::json::number_integer_t>();
-    } else if (py::isinstance<py::float_>(obj)) {
-        js = obj.cast<nl::json::number_float_t>();
     } else if (py::isinstance<py::str>(obj)) {
         js = obj.cast<nl::json::string_t>();
     } else if (py::isinstance<py::tuple>(obj) || py::isinstance<py::list>(obj)) {
         js = nl::json::array();
-        for (py::handle value: obj)
-        {
+        for (py::handle value: obj) {
             js.push_back(value);
         }
     } else if (py::isinstance<py::dict>(obj)) {
-        for (auto item : py::cast<py::dict>(obj))
-        {
+        for (auto item : py::cast<py::dict>(obj)) {
             js[item.first.cast<nl::json::string_t>()] = item.second;
         }
     } else if (py::isinstance<py::array_t<double> >(obj)) {
         js = JSON::numpy_to_json(obj.cast<py::array_t<double, py::array::c_style> >());
     } else if (py::isinstance<py::array_t<std::complex<double> > >(obj)) {
         js = JSON::numpy_to_json(obj.cast<py::array_t<std::complex<double>, py::array::c_style> >());
-    } else if (std::string(py::str(obj.get_type())) == "<class \'complex\'>") {
-        auto tmp = obj.cast<std::complex<double>>();
-        js.push_back(tmp.real());
-        js.push_back(tmp.imag());
     } else if (obj.is_none()) {
         return;
     } else {
-        throw std::runtime_error("to_json not implemented for this type of object: " + obj.cast<std::string>());
+        auto type_str = std::string(py::str(obj.get_type()));
+        if ( type_str == "<class \'complex\'>"
+             || type_str == "<class \'numpy.complex64\'>"
+             || type_str == "<class \'numpy.complex128\'>"
+             || type_str == "<class \'numpy.complex_\'>" ) {
+            auto tmp = obj.cast<std::complex<double>>();
+            js.push_back(tmp.real());
+            js.push_back(tmp.imag());
+        } else if ( type_str == "<class \'numpy.uint32\'>"
+                    || type_str == "<class \'numpy.uint64\'>"
+                    || type_str == "<class \'numpy.int32\'>"
+                    || type_str == "<class \'numpy.int64\'>" ) {
+            js = obj.cast<nl::json::number_integer_t>();
+        } else if ( type_str == "<class \'numpy.float32\'>"
+                    || type_str == "<class \'numpy.float64\'>" ) {
+            js = obj.cast<nl::json::number_float_t>();
+        } else {
+            throw std::runtime_error("to_json not implemented for this type of object: " + std::string(py::str(obj.get_type())));
+        }
     }
 }
 
@@ -331,232 +294,5 @@ void std::from_json(const json_t &js, py::object &o) {
 }
 
 //------------------------------------------------------------------------------
-
-//============================================================================
-// Pybind Conversion for Simulator types
-//============================================================================
-
-template<typename T> 
-py::object AerToPy::from_matrix(const matrix<T> &mat) {
-  // THIS SHOULD RETURN A py::array_t but the author was la...
-  size_t rows = mat.GetRows();
-  size_t cols = mat.GetColumns();
-  std::vector<std::vector<T> > tbr;
-  tbr.reserve(rows);
-  for (size_t r = 0; r < rows; r++) {
-    std::vector<T> mrow;
-    mrow.reserve(cols);
-    for (size_t c = 0; c < cols; c++)
-      mrow.emplace_back(mat(r, c));
-    tbr.emplace_back(mrow);
-  }
-  return py::cast(tbr);
-}
-
-template<typename T> 
-py::dict AerToPy::from_avg_data(const AER::AverageData<T> &avg_data) {
-  py::dict d;
-  d["value"] = avg_data.mean();
-  if (avg_data.has_variance()) {
-    d["variance"] = avg_data.variance();
-  }
-  return d;
-}
-
-template<typename T> 
-py::object AerToPy::from_avg_snap(const AER::AverageSnapshot<T> &avg_snap) {
-  py::dict d;
-  for (const auto &outer_pair : avg_snap.data()) {
-    py::list d1;
-    for (const auto &inner_pair : outer_pair.second) {
-      // Store mean and variance for snapshot
-      py::dict datum = AerToPy::from_avg_data(inner_pair.second);
-      // Add memory key if there are classical registers
-      auto memory = inner_pair.first;
-      if ( ! memory.empty()) datum["memory"] = inner_pair.first;
-        // Add to list of output
-      d1.append(datum);
-    }
-    d[outer_pair.first.data()] = d1;
-  }
-  return d;
-}
-
-py::object AerToPy::from_exp_data(const AER::ExperimentData &result) {
-  py::dict pyresult;
-
-  // Measure data
-  if (result.return_counts_ && ! result.counts_.empty())
-    pyresult["counts"] = result.counts_;
-  if (result.return_memory_ && ! result.memory_.empty())
-    pyresult["memory"] = result.memory_;
-  if (result.return_register_ && ! result.register_.empty())
-    pyresult["register"] = result.register_;
-
-  // Add additional data
-  for (const auto &pair : result.additional_json_data_) {
-    py::object tmp;
-    from_json(pair.second, tmp);
-    pyresult[pair.first.data()] = tmp;
-  }
-  for (const auto &pair : result.additional_cvector_data_) {
-    pyresult[pair.first.data()] = pair.second;
-  }
-  for (const auto &pair : result.additional_cmatrix_data_) {
-    pyresult[pair.first.data()] = AerToPy::from_matrix(pair.second);    
-  }
-
-  // Snapshot data
-  if (result.return_snapshots_) {
-    py::dict snapshots;
-    // Average snapshots
-    for (const auto &pair : result.average_json_snapshots_) {
-      py::object tmp;
-      from_json(pair.second, tmp);
-      snapshots[pair.first.data()] = tmp;
-    }
-    for (auto &pair : result.average_complex_snapshots_) {
-      snapshots[pair.first.data()] = AerToPy::from_avg_snap(pair.second);
-    }
-    for (auto &pair : result.average_cvector_snapshots_) {
-      snapshots[pair.first.data()] = AerToPy::from_avg_snap(pair.second);
-    }
-    for (auto &pair : result.average_cmatrix_snapshots_) {
-      snapshots[pair.first.data()] = AerToPy::from_avg_snap(pair.second);
-    }
-    for (auto &pair : result.average_cmap_snapshots_) {
-      snapshots[pair.first.data()] = AerToPy::from_avg_snap(pair.second);
-    }
-    for (auto &pair : result.average_rmap_snapshots_) {
-      snapshots[pair.first.data()] = AerToPy::from_avg_snap(pair.second);
-    }
-    // Singleshot snapshot data
-    // Note these will override the average snapshots
-    // if they share the same type string
-    for (const auto &pair : result.pershot_json_snapshots_) {
-      py::object tmp;
-      from_json(pair.second, tmp);
-      snapshots[pair.first.data()] = tmp;
-    }
-    for (auto &pair : result.pershot_complex_snapshots_) {
-      py::dict d;
-      // string PershotData
-      for (auto &per_pair : pair.second.data())
-        d[per_pair.first.data()] = per_pair.second.data();
-      snapshots[pair.first.data()] = d;
-    }
-    for (auto &pair : result.pershot_cvector_snapshots_) {
-      py::dict d;
-      // string PershotData
-      for (auto &per_pair : pair.second.data())
-        d[per_pair.first.data()] = per_pair.second.data();
-      snapshots[pair.first.data()] = d;
-    }
-    for (auto &pair : result.pershot_cmatrix_snapshots_) {
-      py::dict d;
-      // string PershotData
-      for (auto &per_pair : pair.second.data())
-        d[per_pair.first.data()] = per_pair.second.data();
-      snapshots[pair.first.data()] = d;
-    }
-    for (auto &pair : result.pershot_cmap_snapshots_) {
-      py::dict d;
-      // string PershotData
-      for (auto &per_pair : pair.second.data())
-        d[per_pair.first.data()] = per_pair.second.data();
-      snapshots[pair.first.data()] = d;
-    }
-    for (auto &pair : result.pershot_rmap_snapshots_) {
-      py::dict d;
-      // string PershotData
-      for (auto &per_pair : pair.second.data())
-        d[per_pair.first.data()] = per_pair.second.data();
-      snapshots[pair.first.data()] = d;
-    }
-    if ( py::len(snapshots) != 0 )
-        pyresult["snapshots"] = snapshots;
-  }
-  //for (auto item : pyresult)
-  //  py::print("    {}:, {}"_s.format(item.first, item.second));
-  return pyresult;
-}
-
-py::object AerToPy::from_exp_result(const AER::ExperimentResult &result) {
-  py::dict pyresult;
-
-  pyresult["shots"] = result.shots;
-  pyresult["seed_simulator"] = result.seed;
-
-  pyresult["data"] = AerToPy::from_exp_data(result.data);
-
-  pyresult["success"] = (result.status == AER::ExperimentResult::Status::completed);
-  switch (result.status) {
-    case AER::ExperimentResult::Status::completed:
-      pyresult["status"] = std::string("DONE");
-      break;
-    case AER::ExperimentResult::Status::error:
-      pyresult["status"] = std::string("ERROR: ") + result.message;
-      break;
-    case AER::ExperimentResult::Status::empty:
-      pyresult["status"] = std::string("EMPTY");
-  }
-  pyresult["time_taken"] = result.time_taken;
-  if (result.header.empty() == false) {
-    py::object tmp;
-    from_json(result.header, tmp);
-    pyresult["header"] = tmp;
-  }
-  if (result.metadata.empty() == false) {
-    py::object tmp;
-    from_json(result.metadata, tmp);
-    pyresult["metadata"] = tmp;
-  }
-  return pyresult;
-
-}
-
-py::object AerToPy::from_result(const AER::Result &result) {
-  py::dict pyresult;
-  pyresult["qobj_id"] = result.qobj_id;
-
-  pyresult["backend_name"] = result.backend_name;
-  pyresult["backend_version"] = result.backend_version;
-  pyresult["date"] = result.date;
-  pyresult["job_id"] = result.job_id;
-
-  py::list exp_results;
-  for( const AER::ExperimentResult& exp : result.results)
-    exp_results.append(AerToPy::from_exp_result(exp));
-  pyresult["results"] = exp_results;
-
-  // For header and metadata we continue using the json->pyobject casting
-  //   bc these are assumed to be small relative to the ExperimentResults
-  if (result.header.empty() == false) {
-    py::object tmp;
-    from_json(result.header, tmp);
-    pyresult["header"] = tmp;
-  }
-  if (result.metadata.empty() == false) {
-    py::object tmp;
-    from_json(result.metadata, tmp);
-    pyresult["metadata"] = tmp;
-  }
-  pyresult["success"] = (result.status == AER::Result::Status::completed);
-  switch (result.status) {
-    case AER::Result::Status::completed:
-      pyresult["status"] = std::string("COMPLETED");
-      break;
-    case AER::Result::Status::partial_completed:
-      pyresult["status"] = std::string("PARTIAL COMPLETED");
-      break;
-    case AER::Result::Status::error:
-      pyresult["status"] = std::string("ERROR: ") + result.message;
-      break;
-    case AER::Result::Status::empty:
-      pyresult["status"] = std::string("EMPTY");
-  }
-  return pyresult;
-
-}
 
 #endif

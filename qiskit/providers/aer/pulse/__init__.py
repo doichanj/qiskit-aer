@@ -2,7 +2,7 @@
 
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2019.
+# (C) Copyright IBM 2018, 2019, 2020.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -47,17 +47,11 @@ of systems.
 # pylint: disable=import-error
 import distutils.sysconfig  # noqa
 import numpy as np
-from .qutip_lite.cy import pyxbuilder as pbldr
 
-from .duffing_model_generators import duffing_system_model
-from .pulse_system_model import PulseSystemModel
+from .system_models.duffing_model_generators import duffing_system_model
+from .system_models.pulse_system_model import PulseSystemModel
 
 # Remove -Wstrict-prototypes from cflags
 CFG_VARS = distutils.sysconfig.get_config_vars()
 if "CFLAGS" in CFG_VARS:
     CFG_VARS["CFLAGS"] = CFG_VARS["CFLAGS"].replace("-Wstrict-prototypes", "")
-
-# Setup pyximport
-# pylint: disable=no-member
-pbldr.install(setup_args={'include_dirs': [np.get_include()]})
-del pbldr

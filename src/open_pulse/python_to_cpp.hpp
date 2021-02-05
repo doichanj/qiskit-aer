@@ -26,7 +26,10 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #endif
+#include "misc/warnings.hpp"
+DISABLE_WARNING_PUSH
 #include <numpy/arrayobject.h>
+DISABLE_WARNING_POP
 #include "ordered_map.hpp"
 #include "types.hpp"
 #include "iterators.hpp"
@@ -310,9 +313,12 @@ class NpArray {
   public:
 	NpArray(){}
 	NpArray(PyArrayObject * array){
+	    if(PyArray_NDIM(array) > 2){
+	        throw std::runtime_error("NpArray can only wrap 1D or 2D arrays.");
+	    }
 		_populate_data(array);
 		_populate_shape(array);
-        size = array->dimensions[0];
+        size = PyArray_NDIM(array) == 2 ? array->dimensions[0] * array->dimensions[1] : array->dimensions[0];
 	}
 
     const VecType * data = nullptr;
@@ -329,14 +335,11 @@ class NpArray {
     const VecType& operator[](size_t index) const {
         return data[index];
     }
-
-    NpArray& operator=(const NpArray<VecType>& other){
-		data = reinterpret_cast<VecType *>(other.data);
-        size = other.size;
-		shape = other.shape;
-		return *this;
-	}
-
+    
+    const VecType& operator()(size_t i, size_t j) const {
+        return data[i*shape[1] + j];
+    }
+    
     bool operator==(const NpArray<VecType>& other) const {
         if(other.size != size ||
            other.shape.size() != shape.size())
@@ -368,6 +371,9 @@ class NpArray {
 		shape.reserve(num_dims);
 		for(auto i = 0; i < num_dims; ++i){
 			shape.emplace_back(p_dims[i]);
+		}
+		if(shape.size() == 1){
+		    shape.emplace_back(0);
 		}
 	}
 
