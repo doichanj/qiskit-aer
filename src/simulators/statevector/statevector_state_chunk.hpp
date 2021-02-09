@@ -183,7 +183,7 @@ protected:
   //-----------------------------------------------------------------------
 
   // Helper function for computing expectation value
-  virtual double pauli_expval(const reg_t &qubits,
+  virtual double expval_pauli(const reg_t &qubits,
                               const std::string& pauli) override;
 
   //-----------------------------------------------------------------------
@@ -754,7 +754,7 @@ void State<statevec_t>::snapshot_pauli_expval(const Operations::Op &op,
   for (const auto &param : op.params_expval_pauli) {
     const auto& coeff = param.first;
     const auto& pauli = param.second;
-    expval += coeff * pauli_expval(op.qubits, pauli);
+    expval += coeff * expval_pauli(op.qubits, pauli);
   }
 
   // Add to snapshot
