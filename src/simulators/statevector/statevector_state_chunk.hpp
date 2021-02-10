@@ -183,7 +183,7 @@ protected:
   //-----------------------------------------------------------------------
 
   // Helper function for computing expectation value
-  virtual double pauli_expval(const reg_t &qubits,
+  virtual double expval_pauli(const reg_t &qubits,
                               const std::string& pauli) override;
 
   //-----------------------------------------------------------------------
@@ -544,7 +544,7 @@ void State<statevec_t>::apply_op(const int_t iChunk,const Operations::Op &op,
 //=========================================================================
 
 template <class statevec_t>
-double State<statevec_t>::pauli_expval(const reg_t &qubits,
+double State<statevec_t>::expval_pauli(const reg_t &qubits,
                                        const std::string& pauli) 
 {
   reg_t qubits_in_chunk;
@@ -754,7 +754,7 @@ void State<statevec_t>::snapshot_pauli_expval(const Operations::Op &op,
   for (const auto &param : op.params_expval_pauli) {
     const auto& coeff = param.first;
     const auto& pauli = param.second;
-    expval += coeff * pauli_expval(op.qubits, pauli);
+    expval += coeff * expval_pauli(op.qubits, pauli);
   }
 
   // Add to snapshot
@@ -1409,12 +1409,13 @@ void State<statevec_t>::apply_initialize(const reg_t &qubits,
 //=========================================================================
 
 template <class statevec_t>
-void State<statevec_t>::apply_multiplexer(const int_t iChunk, const reg_t &control_qubits, const reg_t &target_qubits, const std::vector<cmatrix_t> &mmat) {
-	// (1) Pack vector of matrices into single (stacked) matrix ... note: matrix dims: rows = DIM[qubit.size()] columns = DIM[|target bits|]
-	cmatrix_t multiplexer_matrix = Utils::stacked_matrix(mmat);
+void State<statevec_t>::apply_multiplexer(const int_t iChunk, const reg_t &control_qubits, const reg_t &target_qubits, const std::vector<cmatrix_t> &mmat) 
+{
+  // (1) Pack vector of matrices into single (stacked) matrix ... note: matrix dims: rows = DIM[qubit.size()] columns = DIM[|target bits|]
+  cmatrix_t multiplexer_matrix = Utils::stacked_matrix(mmat);
 
-	// (2) Treat as single, large(r), chained/batched matrix operator
-	apply_multiplexer(iChunk,control_qubits, target_qubits, multiplexer_matrix);
+  // (2) Treat as single, large(r), chained/batched matrix operator
+  apply_multiplexer(iChunk,control_qubits, target_qubits, multiplexer_matrix);
 }
 
 
