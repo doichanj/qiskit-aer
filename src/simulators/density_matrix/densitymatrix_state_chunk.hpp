@@ -614,6 +614,8 @@ double State<statevec_t>::expval_pauli(const reg_t &qubits,
     }
   }
 
+  int_t nrows = 1ull << ((BaseState::num_qubits_ - BaseState::chunk_bits_)/2);
+
   if(qubits_out_chunk.size() > 0){  //there are bits out of chunk
     std::complex<double> phase = 1.0;
 
@@ -623,14 +625,12 @@ double State<statevec_t>::expval_pauli(const reg_t &qubits,
     uint_t x_mask, z_mask, num_y, x_max;
     std::tie(x_mask, z_mask, num_y, x_max) = AER::QV::pauli_masks_and_phase(qubits_out_chunk, pauli_out_chunk);
 
-    AER::QV::add_y_phase(num_y,phase);
-
-    int_t nrows = 1ull << ((BaseState::num_qubits_ - BaseState::chunk_bits_)/2);
-
     z_mask >>= (BaseState::chunk_bits_/2);
     if(x_mask != 0){
       x_mask >>= (BaseState::chunk_bits_/2);
       x_max -= (BaseState::chunk_bits_/2);
+
+      AER::QV::add_y_phase(num_y,phase);
 
       const uint_t mask_u = ~((1ull << (x_max + 1)) - 1);
       const uint_t mask_l = (1ull << x_max) - 1;
@@ -644,7 +644,7 @@ double State<statevec_t>::expval_pauli(const reg_t &qubits,
           double sign = 1.0;
           if (z_mask && (AER::Utils::popcount(iChunk & z_mask) & 1))
             sign = -1.0;
-          expval += sign * BaseState::qregs_[iChunk-BaseState::global_chunk_index_].expval_pauli(qubits_in_chunk, pauli_in_chunk,BaseState::qregs_[pair_chunk - BaseState::global_chunk_index_],z_count,z_count_pair,phase);
+          expval += sign * BaseState::qregs_[iChunk-BaseState::global_chunk_index_].expval_pauli(qubits_in_chunk, pauli_in_chunk,phase);
         }
       }
     }

@@ -380,7 +380,7 @@ double DensityMatrix<data_t>::expval_pauli(const reg_t &qubits,
     return std::real(BaseVector::apply_reduction_lambda(std::move(lambda), size_t(0), nrows));
   }
 
-  auto phase = initial_phase;
+  auto phase = std::complex<data_t>(initial_phase);
   QV::add_y_phase(num_y, phase);
 
   const uint_t mask_u = ~MASKS[x_max + 1];

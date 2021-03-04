@@ -3576,7 +3576,7 @@ double QubitVectorThrust<data_t>::expval_pauli(const reg_t &qubits,
 
   // Compute the overall phase of the operator.
   // This is (-1j) ** number of Y terms modulo 4
-  auto phase = initial_phase;
+  auto phase = std::complex<data_t>(initial_phase);
   add_y_phase(num_y, phase);
   return apply_function_sum( expval_pauli_XYZ_func<data_t>(x_mask, z_mask, x_max, phase) );
 }
@@ -3702,7 +3702,7 @@ double QubitVectorThrust<data_t>::expval_pauli(const reg_t &qubits,
 
   // Compute the overall phase of the operator.
   // This is (-1j) ** number of Y terms modulo 4
-  auto phase = initial_phase;
+  auto phase = std::complex<data_t>(initial_phase);
   add_y_phase(num_y, phase);
 
   ret = apply_function_sum( expval_pauli_inter_chunk_func<data_t>(x_mask, z_mask, phase, pair_ptr,z_count,z_count_pair) );

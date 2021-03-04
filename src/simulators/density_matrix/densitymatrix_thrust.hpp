@@ -780,7 +780,7 @@ public:
   {
     return true;
   }
-  uint_t size(void)
+  uint_t size(int num_qubits)
   {
     return diag_stride_ - 1;
   }
@@ -830,7 +830,7 @@ public:
     mask_l_ = (1ull << x_max) - 1;
   }
 
-  uint_t size(void)
+  uint_t size(int num_qubits)
   {
     return (rows_ >> 1);
   }
@@ -882,7 +882,7 @@ double DensityMatrixThrust<data_t>::expval_pauli(const reg_t &qubits,
 
   // Compute the overall phase of the operator.
   // This is (-1j) ** number of Y terms modulo 4
-  auto phase = initial_phase;
+  auto phase = std::complex<data_t>(initial_phase);
   add_y_phase(num_y, phase);
   return BaseVector::apply_function_sum(
     expval_pauli_XYZ_func_dm<data_t>(x_mask, z_mask, x_max, phase, BaseMatrix::rows_) );
