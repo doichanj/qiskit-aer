@@ -145,22 +145,22 @@ public:
 
   thrust::complex<double>* matrix_pointer(uint_t iChunk) const
   {
-    if(iChunk >= this->num_chunks_){  //for buffer chunks
+    if(iChunk >= this->num_chunks_)  //for buffer chunks
       return ((thrust::complex<double>*)thrust::raw_pointer_cast(matrix_.data())) + ((num_matrices_ + iChunk - this->num_chunks_) * matrix_buffer_size_);
-    }
-    else{
+    else if(num_matrices_ > 1)
       return ((thrust::complex<double>*)thrust::raw_pointer_cast(matrix_.data())) + (iChunk * matrix_buffer_size_);
-    }
+    else
+      return ((thrust::complex<double>*)thrust::raw_pointer_cast(matrix_.data()));
   }
 
   uint_t* param_pointer(uint_t iChunk) const
   {
-    if(iChunk >= this->num_chunks_){  //for buffer chunks
+    if(iChunk >= this->num_chunks_)  //for buffer chunks
       return ((uint_t*)thrust::raw_pointer_cast(params_.data())) + ((num_matrices_ + iChunk - this->num_chunks_) * params_buffer_size_);
-    }
-    else{
+    else if(num_matrices_ > 1)
       return ((uint_t*)thrust::raw_pointer_cast(params_.data())) + (iChunk * params_buffer_size_);
-    }
+    else
+      return ((uint_t*)thrust::raw_pointer_cast(params_.data()));
   }
 
   void synchronize(uint_t iChunk)
@@ -223,11 +223,11 @@ uint_t DeviceChunkContainer<data_t>::Allocate(int idev,int bits,uint_t chunks,ui
 #endif
 
   this->num_buffers_ = buffers;
+  this->num_checkpoint_ = 0;
 
   if(omp_get_num_threads() > 1){    //mult-shot parallelization for small qubits
     multi_shots_ = true;
     mat_bits = bits;
-    this->num_checkpoint_ = checkpoint;
     nc = chunks;
     num_matrices_ = chunks;
   }
@@ -244,16 +244,11 @@ uint_t DeviceChunkContainer<data_t>::Allocate(int idev,int bits,uint_t chunks,ui
 
     size_t freeMem,totalMem;
     cudaMemGetInfo(&freeMem,&totalMem);
-    while(freeMem < ((((nc+buffers+checkpoint)*(uint_t)sizeof(thrust::complex<data_t>)) << bits) + param_size* (num_matrices_ + buffers)) ){
-      if(checkpoint > 0){
-        checkpoint--;
-      }
-      else{
-        nc--;
-        if(checkpoint > nc){
-          checkpoint = nc;
-        }
-      }
+    uint_t additional_chunks = buffers;
+    if(buffers > 0)
+      additional_chunks += AER_DUMMY_BUFFERS;
+    while(freeMem < ((((nc+additional_chunks)*(uint_t)sizeof(thrust::complex<data_t>)) << bits) + param_size* (num_matrices_ + buffers)) ){
+      nc--;
       if(nc == 0){
         break;
       }
@@ -267,7 +262,7 @@ uint_t DeviceChunkContainer<data_t>::Allocate(int idev,int bits,uint_t chunks,ui
   ResizeMatrixBuffers(mat_bits);
 
   this->num_chunks_ = nc;
-  data_.resize((nc+buffers+checkpoint) << bits);
+  data_.resize((nc+buffers) << bits);
 
 #ifdef AER_THRUST_CUDA
   stream_.resize(nc + buffers);
@@ -306,14 +301,14 @@ uint_t DeviceChunkContainer<data_t>::Resize(uint_t chunks,uint_t buffers,uint_t 
 {
   uint_t i;
 
-  if(chunks + buffers + checkpoint > this->num_chunks_ + this->num_buffers_ + this->num_checkpoint_){
+  if(chunks + buffers > this->num_chunks_ + this->num_buffers_){
     set_device();
-    data_.resize((chunks + buffers + checkpoint) << this->chunk_bits_);
+    data_.resize((chunks + buffers) << this->chunk_bits_);
   }
 
   this->num_chunks_ = chunks;
   this->num_buffers_ = buffers;
-  this->num_checkpoint_ = checkpoint;
+  this->num_checkpoint_ = 0;
 
   if(multi_shots_){
     num_matrices_ = chunks;
@@ -587,7 +582,6 @@ reg_t DeviceChunkContainer<data_t>::sample_measure(uint_t iChunk,const std::vect
 {
   const int_t SHOTS = rnds.size();
   reg_t samples(SHOTS,0);
-  thrust::host_vector<uint_t> vSmp(SHOTS);
   int i;
 
   set_device();
@@ -600,42 +594,35 @@ reg_t DeviceChunkContainer<data_t>::sample_measure(uint_t iChunk,const std::vect
   else
     thrust::inclusive_scan(thrust::cuda::par.on(stream_[iChunk]),iter.begin(),iter.end(),iter.begin(),thrust::plus<thrust::complex<data_t>>());
 
-  if(multi_shots_ && num_matrices_ >= this->num_chunks_ && SHOTS < params_buffer_size_){
-    //matrix and parameter buffers can be used
-    double* pRnd = (double*)matrix_pointer(iChunk);
-    uint_t* pSmp = param_pointer(iChunk);
-    thrust::device_ptr<double> rnd_dev_ptr = thrust::device_pointer_cast(pRnd);
+  //matrix and parameter buffers are resued to store random numbers and indices
+  double* pRnd = (double*)matrix_pointer(iChunk);
+  uint_t* pSmp = param_pointer(iChunk);
 
-    cudaMemcpyAsync(pRnd,&rnds[0],SHOTS*sizeof(double),cudaMemcpyHostToDevice,stream_[iChunk]);
+  uint_t pos,nrnd;
+  nrnd = params_buffer_size_;
+  pos = 0;
+  while(pos < SHOTS){
+    if(pos + nrnd > SHOTS)
+      nrnd = SHOTS - pos;
 
-    thrust::lower_bound(thrust::cuda::par.on(stream_[iChunk]), iter.begin(), iter.end(), rnd_dev_ptr, rnd_dev_ptr + SHOTS, params_.begin() + (iChunk * params_buffer_size_) ,complex_less<data_t>());
+    cudaMemcpyAsync(pRnd,&rnds[pos],nrnd*sizeof(double),cudaMemcpyHostToDevice,stream_[iChunk]);
 
-    cudaMemcpyAsync(thrust::raw_pointer_cast(vSmp.data()),pSmp,SHOTS*sizeof(uint_t),cudaMemcpyDeviceToHost,stream_[iChunk]);
-    cudaStreamSynchronize(stream_[iChunk]);
-  }
-  else{
-    thrust::device_vector<double> vRnd_dev(SHOTS);
-    thrust::device_vector<uint_t> vSmp_dev(SHOTS);
+    thrust::lower_bound(thrust::cuda::par.on(stream_[iChunk]), iter.begin(), iter.end(), pRnd, pRnd + nrnd, pSmp, complex_less<data_t>());
 
-    cudaMemcpyAsync(thrust::raw_pointer_cast(vRnd_dev.data()),&rnds[0],SHOTS*sizeof(double),cudaMemcpyHostToDevice,stream_[iChunk]);
-
-    thrust::lower_bound(thrust::cuda::par.on(stream_[iChunk]), iter.begin(), iter.end(), vRnd_dev.begin(), vRnd_dev.begin() + SHOTS, vSmp_dev.begin() ,complex_less<data_t>());
-
-    cudaMemcpyAsync(thrust::raw_pointer_cast(vSmp.data()),thrust::raw_pointer_cast(vSmp_dev.data()),SHOTS*sizeof(uint_t),cudaMemcpyDeviceToHost,stream_[iChunk]);
+    cudaMemcpyAsync(&samples[pos],pSmp,nrnd*sizeof(uint_t),cudaMemcpyDeviceToHost,stream_[iChunk]);
     cudaStreamSynchronize(stream_[iChunk]);
 
-    vRnd_dev.clear();
-    vSmp_dev.clear();
+    pos += nrnd;
   }
+
 #else
-
   if(ChunkContainer<data_t>::enable_omp_){
     if(dot)
       thrust::transform_inclusive_scan(thrust::device,iter.begin(),iter.end(),iter.begin(),complex_dot_scan<data_t>(),thrust::plus<thrust::complex<data_t>>());
     else
       thrust::inclusive_scan(thrust::device,iter.begin(),iter.end(),iter.begin(),thrust::plus<thrust::complex<data_t>>());
 
-    thrust::lower_bound(thrust::device, iter.begin(), iter.end(), rnds.begin(), rnds.begin() + SHOTS, vSmp.begin() ,complex_less<data_t>());
+    thrust::lower_bound(thrust::device, iter.begin(), iter.end(), rnds.begin(), rnds.begin() + SHOTS, samples.begin() ,complex_less<data_t>());
   }
   else{
     //disable nested OMP parallelization when shots are parallelized
@@ -644,14 +631,9 @@ reg_t DeviceChunkContainer<data_t>::sample_measure(uint_t iChunk,const std::vect
     else
       thrust::inclusive_scan(thrust::seq,iter.begin(),iter.end(),iter.begin(),thrust::plus<thrust::complex<data_t>>());
 
-    thrust::lower_bound(thrust::seq, iter.begin(), iter.end(), rnds.begin(), rnds.begin() + SHOTS, vSmp.begin() ,complex_less<data_t>());
+    thrust::lower_bound(thrust::seq, iter.begin(), iter.end(), rnds.begin(), rnds.begin() + SHOTS, samples.begin() ,complex_less<data_t>());
   }
 #endif
-
-  for(i=0;i<SHOTS;i++){
-    samples[i] = vSmp[i];
-  }
-  vSmp.clear();
 
   return samples;
 }

@@ -173,7 +173,6 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks)
   char* str;
   bool multi_gpu = false;
   bool hybrid = false;
-  uint_t num_checkpoint,total_checkpoint = 0;
   bool multi_shot = false;
 
   //--- for test
@@ -253,20 +252,9 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks)
           nc /= 2;
         }
 
-        num_checkpoint = nc;
         chunks_[iDev] = std::make_shared<DeviceChunkContainer<data_t>>();
 
-#ifdef AER_THRUST_CUDA
-        size_t freeMem,totalMem;
-        cudaSetDevice(iDev);
-        cudaMemGetInfo(&freeMem,&totalMem);
-        if(freeMem <= ( ((uint_t)sizeof(thrust::complex<data_t>) * (nc + num_buffers + num_checkpoint)) << chunk_bits_)){
-          num_checkpoint = 0;
-        }
-#endif
-
-        total_checkpoint += num_checkpoint;
-        num_chunks_ += chunks_[iDev]->Allocate(iDev,chunk_bits,nc,num_buffers,num_checkpoint);
+        num_chunks_ += chunks_[iDev]->Allocate(iDev,chunk_bits,nc,num_buffers,0);
       }
       if(num_chunks_ < nchunks){
         //rest of chunks are stored on host
@@ -276,10 +264,14 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks)
         num_chunks_ = nchunks;
       }
 
-      //additional host buffer
+      //additional host buffer used for checkpointing and send/recv buffer for MPI
       iplace_host_ = num_places_;
       chunks_[iplace_host_] = std::make_shared<HostChunkContainer<data_t>>();
+#ifdef AER_DISABLE_GDR
       chunks_[iplace_host_]->Allocate(-1,chunk_bits,0,AER_MAX_BUFFERS);
+#else
+      chunks_[iplace_host_]->Allocate(-1,chunk_bits,0,0);
+#endif
     }
   }
 
@@ -350,7 +342,7 @@ std::shared_ptr<Chunk<data_t>> ChunkManager<data_t>::MapBufferChunkOnHost(void)
 template <typename data_t>
 std::shared_ptr<Chunk<data_t>> ChunkManager<data_t>::MapCheckpoint(std::shared_ptr<Chunk<data_t>> chunk)
 {
-  std::shared_ptr<Chunk<data_t>> checkpoint;
+  std::shared_ptr<Chunk<data_t>> checkpoint = nullptr;
   int iplace = chunk->place();
 
   if(chunks_[iplace]->num_checkpoint() > 0){

@@ -805,7 +805,7 @@ void QubitVectorThrust<data_t>::zero()
 template <typename data_t>
 void QubitVectorThrust<data_t>::chunk_setup(int chunk_bits,int num_qubits,uint_t chunk_index,uint_t num_local_chunks)
 {
-  //only first chunk call allocation function
+  //only first chunk/state calls allocation function
   if(num_local_chunks > 0){
     chunk_manager_.Allocate(chunk_bits,num_qubits,num_local_chunks);
   }
@@ -842,7 +842,6 @@ void QubitVectorThrust<data_t>::set_num_qubits(size_t num_qubits)
   else
     spdlog::debug("    TEST [id={}]: allocated on host (place = {})",chunk_index_,chunk_->place());
 #endif
-
 }
 
 template <typename data_t>

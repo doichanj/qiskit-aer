@@ -546,8 +546,6 @@ void State<statevec_t>::apply_op(const int_t iChunk,const Operations::Op &op,
                          RngEngine &rng,
                          bool final_ops)
 {
-  uint_t ireg;
-
   if(BaseState::creg_.check_conditional(op)) {
     switch (op.type) {
       case Operations::OpType::barrier:
@@ -562,11 +560,11 @@ void State<statevec_t>::apply_op(const int_t iChunk,const Operations::Op &op,
         apply_measure(op.qubits, op.memory, op.registers, rng);
         break;
       case Operations::OpType::bfunc:
-        if(iChunk == 0 || ireg > 0)
+        if(iChunk == 0)
           BaseState::creg_.apply_bfunc(op);
         break;
       case Operations::OpType::roerror:
-        if(iChunk == 0 || ireg > 0)
+        if(iChunk == 0)
           BaseState::creg_.apply_roerror(op, rng);
         break;
       case Operations::OpType::gate:
@@ -1453,7 +1451,7 @@ std::vector<reg_t> State<statevec_t>::sample_measure(const reg_t &qubits,
   rvector_t local_samples(shots,0);
 
   //get rnds positions for each chunk
-#pragma omp parallel for if(BaseState::chunk_omp_parallel_) private(i,j) 
+//#pragma omp parallel for if(BaseState::chunk_omp_parallel_) private(i,j) 
   for(i=0;i<BaseState::num_local_chunks_;i++){
     uint_t nIn;
     std::vector<uint_t> vIdx;

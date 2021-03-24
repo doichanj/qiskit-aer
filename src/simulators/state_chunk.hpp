@@ -118,7 +118,7 @@ public:
                          bool final_ops = false);
 
   //memory allocation (previously called before inisitalize_qreg)
-  virtual void allocate(uint_t num_qubits,uint_t block_bits);
+  virtual void allocate(uint_t num_qubits,uint_t block_bits, uint_t parallel_shots = 1);
 
   // Initializes the State to the default state.
   // Typically this is the n-qubit all |0> state
@@ -438,7 +438,7 @@ void StateChunk<state_t>::set_distribution(uint_t nprocs)
 }
 
 template <class state_t>
-void StateChunk<state_t>::allocate(uint_t num_qubits,uint_t block_bits)
+void StateChunk<state_t>::allocate(uint_t num_qubits,uint_t block_bits, uint_t parallel_shots)
 {
   int_t i;
   uint_t nchunks;
@@ -472,7 +472,6 @@ void StateChunk<state_t>::allocate(uint_t num_qubits,uint_t block_bits)
   qregs_.resize(num_local_chunks_);
 
   gpu_optimization_ = false;
-  chunk_omp_parallel_ = false;
   if(qregs_[0].name().find("gpu") != std::string::npos){
     if(chunk_bits_ < num_qubits_){
       chunk_omp_parallel_ = true;   //CUDA backend requires thread parallelization of chunk loop
@@ -508,6 +507,10 @@ void StateChunk<state_t>::set_config(const json_t &config)
   block_bits_ = 0;
   if (JSON::check_key("blocking_qubits", config))
     JSON::get_value(block_bits_, "blocking_qubits", config);
+
+  //enable thread parallel 
+  if (JSON::check_key("chunk_thread_parallel", config))
+    JSON::get_value(chunk_omp_parallel_, "chunk_thread_parallel", config);
 }
 
 
@@ -523,6 +526,10 @@ void StateChunk<state_t>::apply_ops(const std::vector<Operations::Op> &ops,
   nOp = ops.size();
   iOp = 0;
   while(iOp < nOp){
+//    std::cout << " [" << iOp << " / " << nOp << "] " << ops[iOp];
+//    std::chrono::system_clock::time_point tstart,tend;
+//    tstart = std::chrono::system_clock::now();
+
     if(ops[iOp].type == Operations::OpType::gate && ops[iOp].name == "swap_chunk"){
       //apply swap between chunks
       apply_chunk_swap(ops[iOp].qubits);
@@ -569,6 +576,9 @@ void StateChunk<state_t>::apply_ops(const std::vector<Operations::Op> &ops,
       apply_op(-1,ops[iOp],result,rng,final_ops && nOp == iOp + 1);
     }
     iOp++;
+
+//    tend = std::chrono::system_clock::now();
+//    std::cout << " : " << std::chrono::duration_cast<std::chrono::milliseconds>(tend-tstart).count() << " msec" << std::endl;
   }
 }
 

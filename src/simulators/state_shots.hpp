@@ -12,8 +12,8 @@
  * that they have been altered from the originals.
  */
 
-#ifndef _aer_base_state_hpp_
-#define _aer_base_state_hpp_
+#ifndef _aer_base_state_shots_hpp_
+#define _aer_base_state_shots_hpp_
 
 #include "framework/json.hpp"
 #include "framework/opset.hpp"
@@ -30,7 +30,7 @@ namespace Base {
 //=========================================================================
 
 template <class state_t>
-class State {
+class StateShots {
 
 public:
   using ignore_argument = void;
@@ -58,26 +58,26 @@ public:
   // For snapshot ops allowed snapshots are specified by a set of string names,
   // For example this could include {"probabilities", "pauli_observable"}
 
-  State(const Operations::OpSet &opset) : opset_(opset) {}
+  StateShots(const Operations::OpSet &opset) : opset_(opset) {}
 
-  State(const Operations::OpSet::optypeset_t &optypes,
+  StateShots(const Operations::OpSet::optypeset_t &optypes,
         const stringset_t &gates,
         const stringset_t &snapshots)
-    : State(Operations::OpSet(optypes, gates, snapshots)) {};
+    : StateShots(Operations::OpSet(optypes, gates, snapshots)) {};
 
-  virtual ~State() = default;
+  virtual ~StateShots() = default;
 
   //-----------------------------------------------------------------------
   // Data accessors
   //-----------------------------------------------------------------------
 
   // Return the state qreg object
-  auto &qreg() { return qreg_; }
-  const auto &qreg() const { return qreg_; }
+  auto &qreg(uint_t ireg=0) { return qregs_[ireg]; }
+  const auto &qreg(uint_t ireg=0) const { return qregs_[ireg]; }
 
   // Return the state creg object
-  auto &creg() { return creg_; }
-  const auto &creg() const { return creg_; }
+  auto &creg(uint_t ireg=0) { return cregs_[ireg]; }
+  const auto &creg(uint_t ireg=0) const { return cregs_[ireg]; }
 
   // Return the state opset object
   auto &opset() { return opset_; }
@@ -111,7 +111,7 @@ public:
   // end of the instructions.
   virtual void apply_ops(const std::vector<Operations::Op> &ops,
                          ExperimentResult &result,
-                         RngEngine &rng,
+                         uint_t rng_seed,
                          bool final_ops = false)  = 0;
 
   // Initializes the State to the default state.
@@ -272,10 +272,10 @@ public:
 protected:
 
   // The quantum state data structure
-  state_t qreg_;
+  std::vector<state_t> qregs_;
 
   // Classical register data
-  ClassicalRegister creg_;
+  std::vector<ClassicalRegister> cregs_;
 
   // Opset of instructions supported by the state
   Operations::OpSet opset_;
@@ -295,12 +295,12 @@ protected:
 //=========================================================================
 
 template <class state_t>
-void State<state_t>::set_config(const json_t &config) {
+void StateShots<state_t>::set_config(const json_t &config) {
   (ignore_argument)config;
 }
 
 template <class state_t>
-void State<state_t>::set_global_phase(const double &phase_angle) {
+void StateShots<state_t>::set_global_phase(const double &phase_angle) {
   if (Linalg::almost_equal(phase_angle, 0.0)) {
     has_global_phase_ = false;
     global_phase_ = 1;
@@ -312,7 +312,7 @@ void State<state_t>::set_global_phase(const double &phase_angle) {
 }
 
 template <class state_t>
-std::vector<reg_t> State<state_t>::sample_measure(const reg_t &qubits,
+std::vector<reg_t> StateShots<state_t>::sample_measure(const reg_t &qubits,
                                                   uint_t shots,
                                                   RngEngine &rng) {
   (ignore_argument)qubits;
@@ -322,31 +322,37 @@ std::vector<reg_t> State<state_t>::sample_measure(const reg_t &qubits,
 
 
 template <class state_t>
-void State<state_t>::initialize_creg(uint_t num_memory, uint_t num_register) {
-  creg_.initialize(num_memory, num_register);
+void StateShots<state_t>::initialize_creg(uint_t num_memory, uint_t num_register) 
+{
+  for(int_t i=0;i<cregs_.size();i++)
+    cregs_[i].initialize(num_memory, num_register);
 }
 
 
 template <class state_t>
-void State<state_t>::initialize_creg(uint_t num_memory,
+void StateShots<state_t>::initialize_creg(uint_t num_memory,
                                      uint_t num_register,
                                      const std::string &memory_hex,
-                                     const std::string &register_hex) {
-  creg_.initialize(num_memory, num_register, memory_hex, register_hex);
+                                     const std::string &register_hex) 
+{
+  for(int_t i=0;i<cregs_.size();i++)
+    cregs_[i].initialize(num_memory, num_register, memory_hex, register_hex);
 }
 
 template <class state_t>
-void State<state_t>::save_creg(ExperimentResult &result,
+void StateShots<state_t>::save_creg(ExperimentResult &result,
                                const std::string &key,
                                DataSubType type) const {
   if (creg_.memory_size() == 0)
     return;
   switch (type) {
     case DataSubType::list:
-      result.data.add_list(creg_.memory_hex(), key);
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_list(cregs_[i].memory_hex(), key);
       break;
     case DataSubType::c_accum:
-      result.data.add_accum(1ULL, key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_accum(1ULL, key, cregs_[i].memory_hex());
       break;
     default:
       throw std::runtime_error("Invalid creg data subtype for data key: " + key);
@@ -355,7 +361,7 @@ void State<state_t>::save_creg(ExperimentResult &result,
 
 template <class state_t>
 template <class T>
-void State<state_t>::save_data_average(ExperimentResult &result,
+void StateShots<state_t>::save_data_average(ExperimentResult &result,
                                        const std::string &key,
                                        const T& datum,
                                        DataSubType type) const {
@@ -364,19 +370,22 @@ void State<state_t>::save_data_average(ExperimentResult &result,
       result.data.add_list(datum, key);
       break;
     case DataSubType::c_list:
-      result.data.add_list(datum, key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_list(datum, key, cregs_[i].memory_hex());
       break;
     case DataSubType::accum:
       result.data.add_accum(datum, key);
       break;
     case DataSubType::c_accum:
-      result.data.add_accum(datum, key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_accum(datum, key, cregs_[i].memory_hex());
       break;
     case DataSubType::average:
       result.data.add_average(datum, key);
       break;
     case DataSubType::c_average:
-      result.data.add_average(datum, key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_average(datum, key, cregs_[i].memory_hex());
       break;
     default:
       throw std::runtime_error("Invalid average data subtype for data key: " + key);
@@ -385,7 +394,7 @@ void State<state_t>::save_data_average(ExperimentResult &result,
 
 template <class state_t>
 template <class T>
-void State<state_t>::save_data_average(ExperimentResult &result,
+void StateShots<state_t>::save_data_average(ExperimentResult &result,
                                        const std::string &key,
                                        T&& datum,
                                        DataSubType type) const {
@@ -394,19 +403,22 @@ void State<state_t>::save_data_average(ExperimentResult &result,
       result.data.add_list(std::move(datum), key);
       break;
     case DataSubType::c_list:
-      result.data.add_list(std::move(datum), key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_list(std::move(datum), key, cregs_[i].memory_hex());
       break;
     case DataSubType::accum:
       result.data.add_accum(std::move(datum), key);
       break;
     case DataSubType::c_accum:
-      result.data.add_accum(std::move(datum), key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_accum(std::move(datum), key, cregs_[i].memory_hex());
       break;
     case DataSubType::average:
       result.data.add_average(std::move(datum), key);
       break;
     case DataSubType::c_average:
-      result.data.add_average(std::move(datum), key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_average(std::move(datum), key, cregs_[i].memory_hex());
       break;
     default:
       throw std::runtime_error("Invalid average data subtype for data key: " + key);
@@ -415,7 +427,7 @@ void State<state_t>::save_data_average(ExperimentResult &result,
 
 template <class state_t>
 template <class T>
-void State<state_t>::save_data_pershot(ExperimentResult &result,
+void StateShots<state_t>::save_data_pershot(ExperimentResult &result,
                                        const std::string &key,
                                        const T& datum,
                                        DataSubType type) const {
@@ -424,13 +436,15 @@ void State<state_t>::save_data_pershot(ExperimentResult &result,
     result.data.add_single(datum, key);
     break;
   case DataSubType::c_single:
-    result.data.add_single(datum, key, creg_.memory_hex());
+    for(int_t i=0;i<cregs_.size();i++)
+      result.data.add_single(datum, key, cregs_[i].memory_hex());
     break;
   case DataSubType::list:
     result.data.add_list(datum, key);
     break;
   case DataSubType::c_list:
-    result.data.add_list(datum, key, creg_.memory_hex());
+    for(int_t i=0;i<cregs_.size();i++)
+      result.data.add_list(datum, key, cregs_[i].memory_hex());
     break;
   default:
     throw std::runtime_error("Invalid pershot data subtype for data key: " + key);
@@ -439,7 +453,7 @@ void State<state_t>::save_data_pershot(ExperimentResult &result,
 
 template <class state_t>
 template <class T>
-void State<state_t>::save_data_pershot(ExperimentResult &result, 
+void StateShots<state_t>::save_data_pershot(ExperimentResult &result, 
                                        const std::string &key,
                                        T&& datum,
                                        DataSubType type) const {
@@ -448,13 +462,15 @@ void State<state_t>::save_data_pershot(ExperimentResult &result,
       result.data.add_single(std::move(datum), key);
       break;
     case DataSubType::c_single:
-      result.data.add_single(std::move(datum), key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_single(std::move(datum), key, cregs_[i].memory_hex());
       break;
     case DataSubType::list:
       result.data.add_list(std::move(datum), key);
       break;
     case DataSubType::c_list:
-      result.data.add_list(std::move(datum), key, creg_.memory_hex());
+      for(int_t i=0;i<cregs_.size();i++)
+        result.data.add_list(std::move(datum), key, cregs_[i].memory_hex());
       break;
     default:
       throw std::runtime_error("Invalid pershot data subtype for data key: " + key);
@@ -463,7 +479,7 @@ void State<state_t>::save_data_pershot(ExperimentResult &result,
 
 template <class state_t>
 template <class T>
-void State<state_t>::save_data_single(ExperimentResult &result,
+void StateShots<state_t>::save_data_single(ExperimentResult &result,
                                       const std::string &key,
                                       const T& datum) const {
   result.data.add_single(datum, key);
@@ -471,14 +487,14 @@ void State<state_t>::save_data_single(ExperimentResult &result,
 
 template <class state_t>
 template <class T>
-void State<state_t>::save_data_single(ExperimentResult &result,
+void StateShots<state_t>::save_data_single(ExperimentResult &result,
                                       const std::string &key,
                                       T&& datum) const {
   result.data.add_single(std::move(datum), key);
 }
 
 template <class state_t>
-void State<state_t>::snapshot_state(const Operations::Op &op,
+void StateShots<state_t>::snapshot_state(const Operations::Op &op,
                                     ExperimentResult &result,
                                     std::string name) const {
   name = (name.empty()) ? op.name : name;
@@ -487,7 +503,7 @@ void State<state_t>::snapshot_state(const Operations::Op &op,
 
 
 template <class state_t>
-void State<state_t>::snapshot_creg_memory(const Operations::Op &op,
+void StateShots<state_t>::snapshot_creg_memory(const Operations::Op &op,
                                           ExperimentResult &result,
                                           std::string name) const {
   result.legacy_data.add_pershot_snapshot(name,
@@ -497,7 +513,7 @@ void State<state_t>::snapshot_creg_memory(const Operations::Op &op,
 
 
 template <class state_t>
-void State<state_t>::snapshot_creg_register(const Operations::Op &op,
+void StateShots<state_t>::snapshot_creg_register(const Operations::Op &op,
                                             ExperimentResult &result,
                                             std::string name) const {
   result.legacy_data.add_pershot_snapshot(name,
@@ -507,7 +523,7 @@ void State<state_t>::snapshot_creg_register(const Operations::Op &op,
 
 
 template <class state_t>
-void State<state_t>::apply_save_expval(const Operations::Op &op,
+void StateShots<state_t>::apply_save_expval(const Operations::Op &op,
                                        ExperimentResult &result){
   // Check empty edge case
   if (op.expval_params.empty()) {

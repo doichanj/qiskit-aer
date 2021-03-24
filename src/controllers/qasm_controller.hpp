@@ -250,9 +250,9 @@ class QasmController : public Base::Controller {
                       const Initstate_t& initial_state,
                       const Method method,
                       ExperimentResult& result,
-                      RngEngine& rng) const;
+                      uint_t rng_seed) const;
 
-  template <class State_t, class Initstate_t>
+ template <class State_t, class Initstate_t>
   void run_circuit_with_sampled_noise(const Circuit& circ,
                                       const Noise::NoiseModel& noise,
                                       const json_t& config,
@@ -261,7 +261,17 @@ class QasmController : public Base::Controller {
                                       const Initstate_t& initial_state,
                                       const Method method,
                                       ExperimentResult& result,
-                                      RngEngine& rng) const;
+                                      uint_t rng_seed) const;
+
+  template <class State_t, class Initstate_t>
+  void run_circuit_with_sampled_noise_gpu(const Circuit& circ,
+                                      const Noise::NoiseModel& noise,
+                                      const json_t& config,
+                                      uint_t shots,
+                                      const Initstate_t& initial_state,
+                                      const Method method,
+                                      ExperimentResult& result,
+                                      uint_t rng_seed) const;
 
   //----------------------------------------------------------------
   // Measure sampling optimization
@@ -427,7 +437,7 @@ void QasmController::run_circuit(const Circuit& circ,
           "QasmController: method statevector_gpu is not supported on this "
           "system");
 #else
-      if(Base::Controller::multiple_chunk_required(circ,noise) || (parallel_shots_ > 1 || parallel_experiments_ > 1)){
+      if(Base::Controller::multiple_chunk_required(circ,noise)){
         if (simulation_precision_ == Precision::double_precision) {
           // Double-precision Statevector simulation
           return run_circuit_helper<
@@ -535,7 +545,7 @@ void QasmController::run_circuit(const Circuit& circ,
           "QasmController: method density_matrix_gpu is not supported on this "
           "system");
 #else
-      if(Base::Controller::multiple_chunk_required(circ,noise) || (parallel_shots_ > 1 || parallel_experiments_ > 1)){
+      if(Base::Controller::multiple_chunk_required(circ,noise)){
         if (simulation_precision_ == Precision::double_precision) {
           // Double-precision density matrix simulation
           return run_circuit_helper<
@@ -939,11 +949,17 @@ void QasmController::set_parallelization_circuit(
           (!noise_model.has_quantum_errors() &&
            check_measure_sampling_opt(circ, Method::statevector))) {
         parallel_shots_ = 1;
-        parallel_state_update_ =
-            std::max<int>({1, max_parallel_threads_ / parallel_experiments_});
+        if(chunk_thread_parallel_)
+          parallel_state_update_ = 1;
+        else{
+          parallel_state_update_ =
+              std::max<int>({1, max_parallel_threads_ / parallel_experiments_});
+        }
         return;
       }
       Base::Controller::set_parallelization_circuit(circ, noise_model);
+      if(method == Method::statevector_thrust_gpu && gpu_parallel_shots_ > 1)
+        parallel_shots_ = 1;
       break;
     }
     case Method::density_matrix:
@@ -952,11 +968,17 @@ void QasmController::set_parallelization_circuit(
       if (circ.shots == 1 ||
           check_measure_sampling_opt(circ, Method::density_matrix)) {
         parallel_shots_ = 1;
-        parallel_state_update_ =
-            std::max<int>({1, max_parallel_threads_ / parallel_experiments_});
+        if(chunk_thread_parallel_)
+          parallel_state_update_ = 1;
+        else{
+          parallel_state_update_ =
+              std::max<int>({1, max_parallel_threads_ / parallel_experiments_});
+        }
         return;
       }
       Base::Controller::set_parallelization_circuit(circ, noise_model);
+      if(method == Method::density_matrix_thrust_gpu && gpu_parallel_shots_ > 1)
+        parallel_shots_ = 1;
       break;
     }
     default: {
@@ -1044,14 +1066,14 @@ void QasmController::run_circuit_helper(const Circuit& circ,
   state.set_distribution(Base::Controller::get_distributed_num_processes(shots == circ.shots));
   state.set_global_phase(circ.global_phase_angle);
 
-  // Rng engine
-  RngEngine rng;
-  rng.set_seed(rng_seed);
-
   // Output data container
   result.set_config(config);
   result.metadata.add(state.name(), "method");
   state.add_metadata(result);
+
+  // Rng engine
+  RngEngine rng;
+  rng.set_seed(circ.seed);
 
   // Add measure sampling to metadata
   // Note: this will set to `true` if sampling is enabled for the circuit
@@ -1085,8 +1107,14 @@ void QasmController::run_circuit_helper(const Circuit& circ,
   }
   // General circuit noise sampling
   else {
-    run_circuit_with_sampled_noise(circ, noise, config, shots, state,
-                                   initial_state, method, result, rng);
+    if(gpu_parallel_shots_ > 1 && method == Method::statevector_thrust_gpu){
+      run_circuit_with_sampled_noise_gpu<State_t>(circ, noise, config, shots,
+                                     initial_state, method, result, rng_seed);
+    }
+    else{
+      run_circuit_with_sampled_noise(circ, noise, config, shots, state,
+                                     initial_state, method, result, rng_seed);
+    }
     return;
   }
 
@@ -1109,11 +1137,34 @@ void QasmController::run_circuit_helper(const Circuit& circ,
   if(cache_block_pass.enabled())
     block_bits = cache_block_pass.block_bits();
 
-  //allocate qubit register
-  state.allocate(Base::Controller::max_qubits_,block_bits);
+  // Check if measure sampler and optimization are valid
+  if (check_measure_sampling_opt(opt_circ, method)) {
+    // Implement measure sampler
+    auto pos = opt_circ.first_measure_pos;  // Position of first measurement op
 
-  // Run simulation
-  run_multi_shot(opt_circ, shots, state, initial_state, method, result, rng);
+    // Run circuit instructions before first measure
+    std::vector<Operations::Op> ops(opt_circ.ops.begin(),
+                                    opt_circ.ops.begin() + pos);
+    bool final_ops = (pos == opt_circ.ops.size());
+
+    //allocate qubit register
+    state.allocate(Base::Controller::max_qubits_,block_bits);
+
+    initialize_state(opt_circ, state, initial_state);
+    state.apply_ops(ops, result, rng, final_ops);
+
+    // Get measurement operations and set of measured qubits
+    ops = std::vector<Operations::Op>(opt_circ.ops.begin() + pos,
+                                      opt_circ.ops.end());
+    measure_sampler(ops, shots, state, result, rng);
+
+    // Add measure sampling metadata
+    result.metadata.add(true, "measure_sampling");
+  } else {
+    // Perform standard execution if we cannot apply the
+    // measurement sampling optimization
+    run_multi_shot(opt_circ, shots, state, initial_state, method, result, rng_seed);
+  }
 }
 
 template <class State_t, class Initstate_t>
@@ -1121,7 +1172,8 @@ void QasmController::run_single_shot(const Circuit& circ,
                                      State_t& state,
                                      const Initstate_t& initial_state,
                                      ExperimentResult& result,
-                                     RngEngine& rng) const {
+                                     RngEngine& rng) const 
+{
   initialize_state(circ, state, initial_state);
   state.apply_ops(circ.ops, result, rng, true);
   Base::Controller::save_count_data(result, state.creg());
@@ -1134,35 +1186,21 @@ void QasmController::run_multi_shot(const Circuit& circ,
                                     const Initstate_t& initial_state,
                                     const Method method,
                                     ExperimentResult& result,
-                                    RngEngine& rng) const {
-  // Check if measure sampler and optimization are valid
-  if (check_measure_sampling_opt(circ, method)) {
-    // Implement measure sampler
-    auto pos = circ.first_measure_pos;  // Position of first measurement op
+                                    uint_t rng_seed) const 
+{
+  uint_t ishot=0;
+  while (ishot < shots) {
+    RngEngine rng;
+    rng.set_seed(rng_seed + ishot);
 
-    // Run circuit instructions before first measure
-    std::vector<Operations::Op> ops(circ.ops.begin(),
-                                    circ.ops.begin() + pos);
-    bool final_ops = (pos == circ.ops.size());
-    initialize_state(circ, state, initial_state);
-    state.apply_ops(ops, result, rng, final_ops);
+    //allocate qubit register
+    state.allocate(Base::Controller::max_qubits_,Base::Controller::max_qubits_);
 
-    // Get measurement operations and set of measured qubits
-    ops = std::vector<Operations::Op>(circ.ops.begin() + pos,
-                                      circ.ops.end());
-    measure_sampler(ops, shots, state, result, rng);
+    run_single_shot(circ, state, initial_state, result, rng);
 
-    // Add measure sampling metadata
-    result.metadata.add(true, "measure_sampling");
-  } else {
-    // Perform standard execution if we cannot apply the
-    // measurement sampling optimization
-    while (shots-- > 0) {
-      run_single_shot(circ, state, initial_state, result, rng);
-    }
+    ishot++;
   }
 }
-
 
 template <class State_t, class Initstate_t>
 void QasmController::run_circuit_with_sampled_noise(const Circuit& circ,
@@ -1173,22 +1211,31 @@ void QasmController::run_circuit_with_sampled_noise(const Circuit& circ,
                                                     const Initstate_t& initial_state,
                                                     const Method method,
                                                     ExperimentResult& result,
-                                                    RngEngine& rng) const {
+                                                    uint_t rng_seed) const 
+{
   // Transpilation for circuit noise method
   auto fusion_pass = transpile_fusion(method, circ.opset(), config);
   Transpile::DelayMeasure measure_pass;
   measure_pass.set_config(config);
-  Noise::NoiseModel dummy_noise;
 
   bool is_matrix = false;
   if(method == Method::density_matrix || method == Method::density_matrix_thrust_gpu || method == Method::density_matrix_thrust_cpu)
    is_matrix = true;
   auto cache_block_pass = transpile_cache_blocking(circ,noise,config,(simulation_precision_ == Precision::single_precision) ? sizeof(std::complex<float>) : sizeof(std::complex<double>),is_matrix);
+  uint_t block_bits = 0;
+  if(cache_block_pass.enabled())
+    block_bits = cache_block_pass.block_bits();
 
   // Sample noise using circuit method
-  while (shots-- > 0) {
+  uint_t ishot=0;
+  while (ishot < shots) {
+    RngEngine rng;
+    rng.set_seed(rng_seed + ishot);
+
     Circuit noise_circ = noise.sample_noise(circ, rng);
     noise_circ.shots = 1;
+
+    Noise::NoiseModel dummy_noise = noise;
     measure_pass.optimize_circuit(noise_circ, dummy_noise, state.opset(), result);
     fusion_pass.optimize_circuit(noise_circ, dummy_noise, state.opset(), result);
     cache_block_pass.optimize_circuit(noise_circ, dummy_noise, state.opset(), result);
@@ -1201,6 +1248,87 @@ void QasmController::run_circuit_with_sampled_noise(const Circuit& circ,
     state.allocate(Base::Controller::max_qubits_,block_bits);
 
     run_single_shot(noise_circ, state, initial_state, result, rng);
+
+    ishot++;
+  }
+}
+
+template <class State_t, class Initstate_t>
+void QasmController::run_circuit_with_sampled_noise_gpu(const Circuit& circ,
+                                                    const Noise::NoiseModel& noise,
+                                                    const json_t& config,
+                                                    uint_t shots,
+                                                    const Initstate_t& initial_state,
+                                                    const Method method,
+                                                    ExperimentResult& result,
+                                                    uint_t rng_seed) const 
+{
+  int_t i;
+  std::vector<State_t> states(gpu_parallel_shots_);
+
+  // Set state config
+  for(i=0;i<gpu_parallel_shots_;i++){
+    states[i].set_config(config);
+    states[i].set_parallalization(parallel_state_update_);
+    states[i].set_distribution(Base::Controller::get_distributed_num_processes(shots == circ.shots));
+    states[i].set_global_phase(circ.global_phase_angle);
+  }
+
+  //allocate qregs
+  states[0].allocate(Base::Controller::max_qubits_,Base::Controller::max_qubits_,gpu_parallel_shots_);
+  for(i=1;i<gpu_parallel_shots_;i++){
+    states[i].allocate(Base::Controller::max_qubits_,Base::Controller::max_qubits_,0);
+  }
+
+  // Transpilation for circuit noise method
+  auto fusion_pass = transpile_fusion(method, circ.opset(), config);
+  Transpile::DelayMeasure measure_pass;
+  measure_pass.set_config(config);
+
+  // Sample noise using circuit method
+  std::vector<Circuit> noise_circs(gpu_parallel_shots_);
+  int_t npar = gpu_parallel_shots_;
+  int_t ishot = 0;
+  while(ishot < shots){
+    if(ishot + npar > shots)
+      npar = shots - ishot;
+
+    std::vector<ExperimentResult> par_results(gpu_parallel_shots_);
+
+//#pragma omp prallel for
+    for(i=0;i<npar;i++){
+      RngEngine rng;
+      rng.set_seed(rng_seed + ishot + i);
+
+      // Output data container
+      par_results[i].set_config(config);
+      par_results[i].metadata.add(states[i].name(), "method");
+      states[i].add_metadata(par_results[i]);
+
+      Circuit noise_circ = noise.sample_noise(circ, rng);
+      Noise::NoiseModel dummy_noise;
+      noise_circ.shots = 1;
+
+      // Transpilation for circuit noise method
+      auto fusion_pass = transpile_fusion(method, noise_circ.opset(), config);
+      Transpile::DelayMeasure measure_pass;
+      measure_pass.set_config(config);
+
+      measure_pass.optimize_circuit(noise_circ, dummy_noise, states[i].opset(), par_results[i]);
+      fusion_pass.optimize_circuit(noise_circ, dummy_noise, states[i].opset(), par_results[i]);
+
+      /*
+      initialize_state(noise_circ, states[i], initial_state);
+      state.apply_ops(noise_circ.ops, result, rng, true);
+      Base::Controller::save_count_data(result, state.creg());
+      */
+      run_single_shot(noise_circ, states[i], initial_state, par_results[i], rng);
+    }
+    for (auto &res : par_results) {
+      result.combine(std::move(res));
+    }
+
+    ishot += npar;
   }
 }
 

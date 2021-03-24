@@ -264,6 +264,11 @@ protected:
 
   bool parallel_nested_ = false;
 
+  bool chunk_thread_parallel_ = false;    //for NUMA aware thread parallel by using cache blocking transpiler
+
+  int gpu_parallel_experiments_;
+  int gpu_parallel_shots_;
+
   //max number of qubits in given circuits
   int max_qubits_;
 
@@ -367,6 +372,10 @@ void Controller::set_config(const json_t &config) {
   if(JSON::check_key("blocking_qubits", config)){
     JSON::get_value(cache_block_qubit_,"blocking_qubits", config);
   }
+
+  if (JSON::check_key("chunk_thread_parallel", config))
+    JSON::get_value(chunk_thread_parallel_, "chunk_thread_parallel", config);
+
 }
 
 void Controller::clear_config() {
@@ -383,6 +392,9 @@ void Controller::clear_parallelization() {
   parallel_shots_ = 1;
   parallel_state_update_ = 1;
   parallel_nested_ = false;
+
+  gpu_parallel_experiments_ = 1;
+  gpu_parallel_shots_ = 1;
 
   num_process_per_experiment_ = 1;
   distributed_experiments_ = 1;
@@ -449,8 +461,8 @@ void Controller::set_parallelization_experiments(
 }
 
 void Controller::set_parallelization_circuit(const Circuit &circ,
-                                             const Noise::NoiseModel &noise) {
-
+                                             const Noise::NoiseModel &noise) 
+{
   // Use a local variable to not override stored maximum based
   // on currently executed circuits
   const auto max_shots =
@@ -482,10 +494,34 @@ void Controller::set_parallelization_circuit(const Circuit &circ,
         std::min<int>({static_cast<int>(max_memory_mb_ / circ_memory_mb),
                        max_shots, shots});
   }
-  parallel_state_update_ =
+  if(chunk_thread_parallel_)
+    parallel_state_update_ = 1;
+  else{
+    parallel_state_update_ =
       (parallel_shots_ > 1)
           ? std::max<int>({1, max_parallel_threads_ / parallel_shots_})
           : std::max<int>({1, max_parallel_threads_ / parallel_experiments_});
+  }
+
+  //setting parallel shots on GPU
+  if(num_gpus_ > 0){
+    int circ_memory_mb = required_memory_mb(circ, noise) / num_process_per_experiment_;
+    circ_memory_mb = std::max<int>({1, circ_memory_mb});
+    if(max_gpu_memory_mb_/num_gpus_ < circ_memory_mb){
+      gpu_parallel_shots_ = 1;  //gpus are used to parallelize large qubit simulation
+    }
+    else{
+#ifdef AER_MPI
+      int shots = (circ.shots * (distributed_shots_rank_ + 1)/distributed_shots_) - (circ.shots * distributed_shots_rank_ /distributed_shots_);
+#else
+      int shots = circ.shots;
+#endif
+      gpu_parallel_shots_ = 
+          std::min<int>(static_cast<int>(((max_gpu_memory_mb_/num_gpus_) / circ_memory_mb)*num_gpus_),shots);
+      //test
+      std::cout << "  GPU shots setting : shots = " << shots << ", gpu_parallel_shots = " << gpu_parallel_shots_ << " , parallel_shots = " << parallel_shots_ <<std::endl;
+    }
+  }
 }
 
 void Controller::set_distributed_parallelization(const std::vector<Circuit> &circuits,
@@ -953,16 +989,6 @@ void Controller::execute_circuit(Circuit &circ,
       run_circuit(circ, noise, config, shots, circ.seed, result);
       // Parallel shot thread execution
     } else {
-      // Calculate shots per thread
-      std::vector<unsigned int> subshots;
-      for (int j = 0; j < parallel_shots_; ++j) {
-        subshots.push_back(shots / parallel_shots_);
-      }
-      // If shots is not perfectly divisible by threads, assign the remainder
-      for (int j = 0; j < int(shots % parallel_shots_); ++j) {
-        subshots[j] += 1;
-      }
-
       // Vector to store parallel thread output data
       std::vector<ExperimentResult> par_results(parallel_shots_);
       std::vector<std::string> error_msgs(parallel_shots_);
@@ -990,7 +1016,10 @@ void Controller::execute_circuit(Circuit &circ,
 #pragma omp parallel for if (parallel_shots_ > 1) num_threads(parallel_shots_)
       for (int i = 0; i < parallel_shots_; i++) {
         try {
-          run_circuit(circ, noise, config, subshots[i], circ.seed + i,
+          uint_t shot_begin,shot_end;
+          shot_begin = i*shots/parallel_shots_;
+          shot_end = (i+1)*shots/parallel_shots_;
+          run_circuit(circ, noise, config, shot_end-shot_begin, circ.seed + shot_begin,
                       par_results[i]);
         } catch (std::runtime_error &error) {
           error_msgs[i] = error.what();

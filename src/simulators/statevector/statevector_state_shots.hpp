@@ -13,8 +13,8 @@
  */
 
 
-#ifndef _statevector_state_hpp
-#define _statevector_state_hpp
+#ifndef _statevector_state_shots_hpp
+#define _statevector_state_shots_hpp
 
 #include <algorithm>
 #define _USE_MATH_DEFINES
@@ -30,12 +30,7 @@
 
 namespace AER {
 
-//predefinition of StatevectorChunk::State for friend class declaration to access static members
-namespace StatevectorChunk {
-template <class statevec_t> class State;
-}
-
-namespace Statevector {
+namespace StatevectorShots {
 
 using OpType = Operations::OpType;
 
@@ -71,41 +66,12 @@ const Operations::OpSet StateOpSet(
      "expectation_value_matrix_with_variance",
      "expectation_value_pauli_single_shot"});
 
-// Allowed gates enum class
-enum class Gates {
-  id, h, s, sdg, t, tdg,
-  rxx, ryy, rzz, rzx,
-  mcx, mcy, mcz, mcr, mcrx, mcry,
-  mcrz, mcp, mcu2, mcu3, mcswap, mcsx, pauli
-};
-
-// Allowed snapshots enum class
-enum class Snapshots {
-  statevector,
-  cmemory,
-  cregister,
-  probs,
-  probs_var,
-  densmat,
-  densmat_var,
-  expval_pauli,
-  expval_pauli_var,
-  expval_pauli_shot,
-  expval_matrix,
-  expval_matrix_var,
-  expval_matrix_shot
-};
-
-// Enum class for different types of expectation values
-enum class SnapshotDataType { average, average_var, pershot };
-
 //=========================================================================
 // QubitVector State subclass
 //=========================================================================
 
 template <class statevec_t = QV::QubitVector<double>>
-class State : public Base::State<statevec_t> {
-  friend class StatevectorChunk::State<statevec_t>;
+class State : public Base::StateShots<statevec_t> {
 public:
   using BaseState = Base::State<statevec_t>;
 
@@ -345,89 +311,6 @@ protected:
   // Table of allowed snapshot types to enum class members
   const static stringmap_t<Snapshots> snapshotset_;
 };
-
-//=========================================================================
-// Implementation: Allowed ops and gateset
-//=========================================================================
-
-template <class statevec_t>
-const stringmap_t<Gates> State<statevec_t>::gateset_({
-    // 1-qubit gates
-    {"delay", Gates::id},// Delay gate
-    {"id", Gates::id},   // Pauli-Identity gate
-    {"x", Gates::mcx},   // Pauli-X gate
-    {"y", Gates::mcy},   // Pauli-Y gate
-    {"z", Gates::mcz},   // Pauli-Z gate
-    {"s", Gates::s},     // Phase gate (aka sqrt(Z) gate)
-    {"sdg", Gates::sdg}, // Conjugate-transpose of Phase gate
-    {"h", Gates::h},     // Hadamard gate (X + Z / sqrt(2))
-    {"t", Gates::t},     // T-gate (sqrt(S))
-    {"tdg", Gates::tdg}, // Conjguate-transpose of T gate
-    {"p", Gates::mcp},   // Parameterized phase gate 
-    {"sx", Gates::mcsx}, // Sqrt(X) gate
-    // 1-qubit rotation Gates
-    {"r", Gates::mcr},   // R rotation gate
-    {"rx", Gates::mcrx}, // Pauli-X rotation gate
-    {"ry", Gates::mcry}, // Pauli-Y rotation gate
-    {"rz", Gates::mcrz}, // Pauli-Z rotation gate
-    // Waltz Gates
-    {"u1", Gates::mcp},  // zero-X90 pulse waltz gate
-    {"u2", Gates::mcu2}, // single-X90 pulse waltz gate
-    {"u3", Gates::mcu3}, // two X90 pulse waltz gate
-    {"u", Gates::mcu3}, // two X90 pulse waltz gate
-    {"U", Gates::mcu3}, // two X90 pulse waltz gate
-    // 2-qubit gates
-    {"CX", Gates::mcx},      // Controlled-X gate (CNOT)
-    {"cx", Gates::mcx},      // Controlled-X gate (CNOT)
-    {"cy", Gates::mcy},      // Controlled-Y gate
-    {"cz", Gates::mcz},      // Controlled-Z gate
-    {"cp", Gates::mcp},      // Controlled-Phase gate 
-    {"cu1", Gates::mcp},    // Controlled-u1 gate
-    {"cu2", Gates::mcu2},    // Controlled-u2 gate
-    {"cu3", Gates::mcu3},    // Controlled-u3 gate
-    {"cp", Gates::mcp},      // Controlled-Phase gate 
-    {"swap", Gates::mcswap}, // SWAP gate
-    {"rxx", Gates::rxx},     // Pauli-XX rotation gate
-    {"ryy", Gates::ryy},     // Pauli-YY rotation gate
-    {"rzz", Gates::rzz},     // Pauli-ZZ rotation gate
-    {"rzx", Gates::rzx},     // Pauli-ZX rotation gate
-    {"csx", Gates::mcsx},    // Controlled-Sqrt(X) gate
-    // 3-qubit gates
-    {"ccx", Gates::mcx},      // Controlled-CX gate (Toffoli)
-    {"cswap", Gates::mcswap}, // Controlled SWAP gate (Fredkin)
-    // Multi-qubit controlled gates
-    {"mcx", Gates::mcx},      // Multi-controlled-X gate
-    {"mcy", Gates::mcy},      // Multi-controlled-Y gate
-    {"mcz", Gates::mcz},      // Multi-controlled-Z gate
-    {"mcr", Gates::mcr},      // Multi-controlled R-rotation gate
-    {"mcrx", Gates::mcrx},    // Multi-controlled X-rotation gate
-    {"mcry", Gates::mcry},    // Multi-controlled Y-rotation gate
-    {"mcrz", Gates::mcrz},    // Multi-controlled Z-rotation gate
-    {"mcphase", Gates::mcp},  // Multi-controlled-Phase gate 
-    {"mcu1", Gates::mcp},     // Multi-controlled-u1
-    {"mcu2", Gates::mcu2},    // Multi-controlled-u2
-    {"mcu3", Gates::mcu3},    // Multi-controlled-u3
-    {"mcswap", Gates::mcswap},// Multi-controlled SWAP gate
-    {"mcsx", Gates::mcsx},    // Multi-controlled-Sqrt(X) gate
-    {"pauli", Gates::pauli},   // Multi-qubit Pauli gate
-    {"mcx_gray", Gates::mcx}
-});
-
-template <class statevec_t>
-const stringmap_t<Snapshots> State<statevec_t>::snapshotset_(
-    {{"statevector", Snapshots::statevector},
-     {"probabilities", Snapshots::probs},
-     {"expectation_value_pauli", Snapshots::expval_pauli},
-     {"expectation_value_matrix", Snapshots::expval_matrix},
-     {"probabilities_with_variance", Snapshots::probs_var},
-     {"density_matrix", Snapshots::densmat},
-     {"density_matrix_with_variance", Snapshots::densmat_var},
-     {"expectation_value_pauli_with_variance", Snapshots::expval_pauli_var},
-     {"expectation_value_matrix_with_variance", Snapshots::expval_matrix_var},
-     {"expectation_value_pauli_single_shot", Snapshots::expval_pauli_shot},
-     {"expectation_value_matrix_single_shot", Snapshots::expval_matrix_shot},
-     {"memory", Snapshots::cmemory},
-     {"register", Snapshots::cregister}});
 
 //=========================================================================
 // Implementation: Base class method overrides
