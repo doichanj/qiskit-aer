@@ -130,7 +130,7 @@ public:
   void initialize_component(const reg_t &qubits, const cvector_t<double> &state);
 
   //chunk setup
-  void chunk_setup(int chunk_bits,int num_qubits,uint_t chunk_index,uint_t num_local_chunks);
+  uint_t chunk_setup(int chunk_bits,int num_qubits,uint_t chunk_index,uint_t num_local_chunks);
 
   //cache control for chunks on host
   bool fetch_chunk(void) const;
@@ -369,6 +369,8 @@ protected:
   std::shared_ptr<Chunk<data_t>> checkpoint_;
   mutable std::shared_ptr<Chunk<data_t>> send_chunk_;
   mutable std::shared_ptr<Chunk<data_t>> recv_chunk_;
+//  static ChunkManagerStorage<data_t> chunk_manager_storage_;
+//  ChunkManager<data_t>* chunk_manager_;
   static ChunkManager<data_t> chunk_manager_;
 
   uint_t chunk_index_;
@@ -419,9 +421,10 @@ protected:
 #endif
 };
 
+//template <typename data_t>
+//ChunkManagerStorage<data_t> QubitVectorThrust<data_t>::chunk_manager_storage_;
 template <typename data_t>
-ChunkManager<data_t> QubitVectorThrust<data_t>::chunk_manager_;
-
+  ChunkManager<data_t> QubitVectorThrust<data_t>::chunk_manager_;
 
 /*******************************************************************************
  *
@@ -525,6 +528,7 @@ QubitVectorThrust<data_t>::QubitVectorThrust(size_t num_qubits) : num_qubits_(0)
   checkpoint_ = nullptr;
   recv_chunk_ = nullptr;
   send_chunk_ = nullptr;
+//  chunk_manager_ = nullptr;
 
 #ifdef AER_DEBUG
   debug_count = 0;
@@ -552,6 +556,10 @@ QubitVectorThrust<data_t>::~QubitVectorThrust()
   if(chunk_){
     chunk_manager_.UnmapChunk(chunk_);
   }
+
+//  if(chunk_manager_){
+ //   chunk_manager_.reset();
+ // }
 }
 
 //------------------------------------------------------------------------------
@@ -833,22 +841,34 @@ void QubitVectorThrust<data_t>::zero()
 
 
 template <typename data_t>
-void QubitVectorThrust<data_t>::chunk_setup(int chunk_bits,int num_qubits,uint_t chunk_index,uint_t num_local_chunks)
+uint_t QubitVectorThrust<data_t>::chunk_setup(int chunk_bits,int num_qubits,uint_t chunk_index,uint_t num_local_chunks)
 {
+  uint_t idx = 0;
   //only first chunk call allocation function
-  if(num_local_chunks > 0){
+  if(chunk_bits > 0 && num_qubits > 0){
+    /*
+#pragma omp critical
+    {
+      chunk_manager_ = chunk_manager_storage_.add();
+    }
+    */
     chunk_manager_.Allocate(chunk_bits,num_qubits,num_local_chunks);
+//    idx = chunk_manager_.uid();
+  }
+  else{
+//    idx = num_local_chunks;  //using this parameter for index
+//    chunk_manager_ = chunk_manager_storage_[idx];
   }
 
   //set global chunk ID
   chunk_index_ = chunk_index;
 
-  if(chunk_bits < num_qubits){
+  if(chunk_bits < num_qubits)
     multi_chunk_distribution_ = true;
-  }
-
-  if(omp_get_num_threads() > 1)
+  else
     multi_shots_ = true;
+
+  return idx;
 }
 
 template <typename data_t>
@@ -945,31 +965,14 @@ std::complex<double> QubitVectorThrust<data_t>::inner_product() const
   chunk_->set_device();
 
   vec0 = (data_t*)chunk_->pointer();
+  vec1 = (data_t*)checkpoint_->pointer();
 #ifdef AER_THRUST_CUDA
   cudaStream_t strm = chunk_->stream();
-  if(strm){
-    if(chunk_->device() == checkpoint_->device()){
-      vec1 = (data_t*)checkpoint_->pointer();
-
-      dot = thrust::inner_product(thrust::device,vec0,vec0 + data_size_*2,vec1,0.0);
-    }
-    else{
-      std::shared_ptr<Chunk<data_t>> pBuffer = chunk_manager_.MapBufferChunk(chunk_->place());
-      pBuffer->CopyIn(checkpoint_);
-      vec1 = (data_t*)pBuffer->pointer();
-
-      dot = thrust::inner_product(thrust::device,vec0,vec0 + data_size_*2,vec1,0.0);
-      chunk_manager_.UnmapBufferChunk(pBuffer);
-    }
-  }
-  else{
-    vec1 = (data_t*)checkpoint_->pointer();
-
+  if(strm)
+    dot = thrust::inner_product(thrust::device,vec0,vec0 + data_size_*2,vec1,0.0);
+  else
     dot = thrust::inner_product(thrust::omp::par,vec0,vec0 + data_size_*2,vec1,0.0);
-  }
 #else
-  vec1 = (data_t*)checkpoint_->pointer();
-
   if(num_qubits_ > omp_threshold_ && omp_threads_ > 1)
     dot = thrust::inner_product(thrust::device,vec0,vec0 + data_size_*2,vec1,0.0);
   else

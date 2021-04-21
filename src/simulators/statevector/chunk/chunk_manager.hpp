@@ -49,8 +49,11 @@ protected:
 
   int iplace_host_;            //chunk container for host memory
 
+  bool multi_shots_;
+
+  uint_t uid_;
 public:
-  ChunkManager();
+  ChunkManager(uint_t id);
 
   ~ChunkManager();
 
@@ -92,6 +95,10 @@ public:
   {
     return num_qubits_;
   }
+  uint_t uid(void)
+  {
+    return uid_;
+  }
 
   std::shared_ptr<Chunk<data_t>> MapChunk(int iplace = -1);
   std::shared_ptr<Chunk<data_t>> MapBufferChunk(int idev);
@@ -105,9 +112,11 @@ public:
 };
 
 template <typename data_t>
-ChunkManager<data_t>::ChunkManager()
+ChunkManager<data_t>::ChunkManager(uint_t id)
 {
   int i,j;
+
+  uid_ = id;
 
   num_places_ = 1;
   chunk_bits_ = 0;
@@ -115,6 +124,8 @@ ChunkManager<data_t>::ChunkManager()
   num_qubits_ = 0;
 
   idev_buffer_map_ = 0;
+
+  multi_shots_ = false;
 
 #ifdef AER_THRUST_CPU
   num_devices_ = 0;
@@ -137,7 +148,7 @@ ChunkManager<data_t>::ChunkManager()
 
 #endif
 
-  chunks_.resize(num_places_*2 + 1);
+  chunks_.resize(num_places_*2 + 1,nullptr);
 
   iplace_host_ = num_places_ ;
 
@@ -173,8 +184,6 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks)
   char* str;
   bool multi_gpu = false;
   bool hybrid = false;
-  uint_t num_checkpoint,total_checkpoint = 0;
-  bool multi_shot = false;
 
   //--- for test
   str = getenv("AER_MULTI_GPU");
@@ -188,99 +197,90 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks)
   }
   //---
 
-  nid = omp_get_num_threads();
-  tid = omp_get_thread_num();
+  if(num_qubits_ != nqubits || chunk_bits_ != chunk_bits || nchunks > num_chunks_){
+    //free previous allocation
+    Free();
 
-#pragma omp critical
-  {
-    if(num_qubits_ != nqubits || chunk_bits_ != chunk_bits || nchunks*nid > num_chunks_){
-      //free previous allocation
-      Free();
-      num_qubits_ = nqubits;
-      chunk_bits_ = chunk_bits;
+    num_qubits_ = nqubits;
+    chunk_bits_ = chunk_bits;
 
-      num_chunks_ = 0;
+    num_chunks_ = 0;
 
-      if(chunk_bits == nqubits){
-        if(nchunks > 1 || nid > 1){  //multi-shot parallelization
-          //accumulate number of chunks
-          num_chunks_ = nid*nchunks;
+    if(chunk_bits == nqubits){
+      if(nchunks > 1){  //multi-shot parallelization
+        num_chunks_ = nchunks;
 
-          num_buffers = 0;
-          multi_shot = true;
+        num_buffers = 0;  //buffer is not required
+        multi_shots_ = true;
 
 #ifdef AER_THRUST_CPU
-          multi_gpu = false;
-          num_places_ = 1;
-#else
-          multi_gpu = true;
-          num_places_ = num_devices_;
-#endif
-        }
-        else{    //single chunk
-          num_buffers = 0;
-          multi_gpu = false;
-          num_places_ = 1;
-          num_chunks_ = nchunks;
-        }
-      }
-      else{   //multiple-chunk parallelization
-        num_buffers = AER_MAX_BUFFERS;
-
-#ifdef AER_THRUST_CUDA
-        num_places_ = num_devices_;
-        if(!multi_gpu){
-          size_t freeMem,totalMem;
-          cudaSetDevice(0);
-          cudaMemGetInfo(&freeMem,&totalMem);
-          if(freeMem > ( ((uint_t)sizeof(thrust::complex<data_t>) * (nchunks + num_buffers + AER_DUMMY_BUFFERS)) << chunk_bits_)){
-            num_places_ = 1;
-          }
-        }
-#else
+        multi_gpu = false;
         num_places_ = 1;
+#else
+        multi_gpu = true;   //shots are distributed to GPUs
+        num_places_ = num_devices_;
 #endif
+      }
+      else{    //single chunk
+        multi_shots_ = false;
+        num_buffers = 0;
+        multi_gpu = false;
+        num_places_ = 1;
         num_chunks_ = nchunks;
       }
-
-      nchunks = num_chunks_;
-      num_chunks_ = 0;
-      for(iDev=0;iDev<num_places_;iDev++){
-        is = nchunks * (uint_t)iDev / (uint_t)num_places_;
-        ie = nchunks * (uint_t)(iDev + 1) / (uint_t)num_places_;
-        nc = ie - is;
-        if(hybrid){
-          nc /= 2;
-        }
-
-        num_checkpoint = nc;
-        chunks_[iDev] = std::make_shared<DeviceChunkContainer<data_t>>();
+    }
+    else{   //multiple-chunk parallelization
+      num_buffers = AER_MAX_BUFFERS;
+      multi_shots_ = false;
 
 #ifdef AER_THRUST_CUDA
+      num_places_ = num_devices_;
+      if(!multi_gpu){
         size_t freeMem,totalMem;
-        cudaSetDevice(iDev);
+        cudaSetDevice(0);
         cudaMemGetInfo(&freeMem,&totalMem);
-        if(freeMem <= ( ((uint_t)sizeof(thrust::complex<data_t>) * (nc + num_buffers + num_checkpoint)) << chunk_bits_)){
-          num_checkpoint = 0;
+        if(freeMem > ( ((uint_t)sizeof(thrust::complex<data_t>) * (nchunks + num_buffers + AER_DUMMY_BUFFERS)) << chunk_bits_)){
+          num_places_ = 1;
         }
+      }
+#else
+      num_places_ = 1;
 #endif
-
-        total_checkpoint += num_checkpoint;
-        num_chunks_ += chunks_[iDev]->Allocate(iDev,chunk_bits,nc,num_buffers,num_checkpoint);
-      }
-      if(num_chunks_ < nchunks){
-        //rest of chunks are stored on host
-        chunks_[num_places_] = std::make_shared<HostChunkContainer<data_t>>();
-        chunks_[num_places_]->Allocate(-1,chunk_bits,nchunks-num_chunks_,AER_MAX_BUFFERS);
-        num_places_ += 1;
-        num_chunks_ = nchunks;
-      }
-
-      //additional host buffer
-      iplace_host_ = num_places_;
-      chunks_[iplace_host_] = std::make_shared<HostChunkContainer<data_t>>();
-      chunks_[iplace_host_]->Allocate(-1,chunk_bits,0,AER_MAX_BUFFERS);
+      num_chunks_ = nchunks;
     }
+
+    nchunks = num_chunks_;
+    num_chunks_ = 0;
+    for(iDev=0;iDev<num_places_;iDev++){
+      is = nchunks * (uint_t)iDev / (uint_t)num_places_;
+      ie = nchunks * (uint_t)(iDev + 1) / (uint_t)num_places_;
+      nc = ie - is;
+      if(hybrid){
+        nc /= 2;
+      }
+
+      chunks_[iDev] = std::make_shared<DeviceChunkContainer<data_t>>();
+      chunks_[iDev]->set_multi_shots(multi_shots_);
+      num_chunks_ += chunks_[iDev]->Allocate(iDev,chunk_bits,nc,num_buffers);
+    }
+    if(num_chunks_ < nchunks){
+      //rest of chunks are stored on host
+      chunks_[num_places_] = std::make_shared<HostChunkContainer<data_t>>();
+      chunks_[num_places_]->set_multi_shots(multi_shots_);
+      chunks_[num_places_]->Allocate(-1,chunk_bits,nchunks-num_chunks_,num_buffers);
+      num_places_ += 1;
+      num_chunks_ = nchunks;
+    }
+
+    //additional host buffer
+    iplace_host_ = num_places_;
+    chunks_[iplace_host_] = std::make_shared<HostChunkContainer<data_t>>();
+    chunks_[iplace_host_]->set_multi_shots(multi_shots_);
+#ifdef AER_DISABLE_GDR
+    chunks_[iplace_host_]->Allocate(-1,chunk_bits,0,AER_MAX_BUFFERS);
+#else
+    chunks_[iplace_host_]->Allocate(-1,chunk_bits,0,0);
+#endif
   }
 
   return num_chunks_;
@@ -292,9 +292,11 @@ void ChunkManager<data_t>::Free(void)
   int i;
 
   for(i=0;i<chunks_.size();i++){
-    if(chunks_[i])
+    if(chunks_[i]){
       chunks_[i]->Deallocate();
-    chunks_[i].reset();
+      chunks_[i].reset();
+      chunks_[i] = nullptr;
+    }
   }
 
   chunk_bits_ = 0;
@@ -396,6 +398,33 @@ void ChunkManager<data_t>::UnmapCheckpoint(std::shared_ptr<Chunk<data_t>> buffer
   chunks_[buffer->place()]->UnmapCheckpoint(buffer);
 }
 
+
+
+template <typename data_t>
+class ChunkManagerStorage 
+{
+protected:
+//  std::vector<std::shared_ptr<ChunkManager<data_t>>> managers_;
+  std::vector<ChunkManager<data_t>> managers_;
+public:
+  ChunkManagerStorage(){}
+  ~ChunkManagerStorage()
+  {
+    managers_.clear();
+  }
+  ChunkManager<data_t>* add(void)
+  {
+    uint_t id = managers_.size();
+//    managers_.push_back(std::make_shared<ChunkManager<data_t>>(id));
+    managers_.push_back(ChunkManager<data_t>(id));
+    return &managers_[id];
+  }
+
+  ChunkManager<data_t>* operator[](uint_t idx)
+  {
+    return &managers_[idx];
+  }
+};
 
 
 //------------------------------------------------------------------------------

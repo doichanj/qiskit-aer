@@ -320,6 +320,12 @@ protected:
   std::vector<std::shared_ptr<Chunk<data_t>>> buffers_;        //buffer storage
   std::vector<std::shared_ptr<Chunk<data_t>>> checkpoints_;    //checkpoint storage
   bool enable_omp_;                 //disable this when shots are parallelized outside
+  bool multi_shots_;
+
+  //for multi-shot parallelization
+  thrust::host_vector<uint_t> chunk_queue_;
+  thrust::host_vector<thrust::complex<double>> matrix_queue_;
+  thrust::host_vector<uint_t> matrix_size_queue_;
 public:
   ChunkContainer()
   {
@@ -330,6 +336,7 @@ public:
     num_checkpoint_ = 0;
     num_chunk_mapped_ = 0;
     enable_omp_ = true;
+    multi_shots_ = false;
   }
   virtual ~ChunkContainer(){}
 
@@ -371,6 +378,10 @@ public:
     {
       enable_omp_ = flg;
     }
+  }
+  void set_multi_shots(bool flg)
+  {
+    multi_shots_ = flg;
   }
 
   virtual void set_device(void) const
@@ -487,6 +498,7 @@ protected:
 
   //allocate storage for chunk classes
   void allocate_chunks(void);
+  void deallocate_chunks(void);
 };
 
 template <typename data_t>
@@ -709,14 +721,48 @@ void ChunkContainer<data_t>::allocate_chunks(void)
   buffers_.resize(num_buffers_);
   checkpoints_.resize(num_checkpoint_);
 
-  for(i=0;i<num_chunks_;i++){
-    chunks_[i] = std::make_shared<Chunk<data_t>>(this->shared_from_this(),i);
+  if(num_chunks_ > 0){
+    chunks_.resize(num_chunks_);
+    for(i=0;i<num_chunks_;i++){
+      chunks_[i] = std::make_shared<Chunk<data_t>>(this->shared_from_this(),i);
+    }
   }
-  for(i=0;i<num_buffers_;i++){
-    buffers_[i] = std::make_shared<Chunk<data_t>>(this->shared_from_this(),num_chunks_+i);
+  if(num_buffers_ > 0){
+    buffers_.resize(num_buffers_);
+    for(i=0;i<num_buffers_;i++){
+      buffers_[i] = std::make_shared<Chunk<data_t>>(this->shared_from_this(),num_chunks_+i);
+    }
   }
-  for(i=0;i<num_checkpoint_;i++){
-    checkpoints_[i] = std::make_shared<Chunk<data_t>>(this->shared_from_this(),num_chunks_+num_buffers_+i);
+  if(num_checkpoint_ > 0){
+    checkpoints_.resize(num_checkpoint_);
+    for(i=0;i<num_checkpoint_;i++){
+      checkpoints_[i] = std::make_shared<Chunk<data_t>>(this->shared_from_this(),num_chunks_+num_buffers_+i);
+    }
+  }
+}
+
+template <typename data_t>
+void ChunkContainer<data_t>::deallocate_chunks(void)
+{
+  uint_t i;
+
+  if(num_chunks_ > 0){
+    for(i=0;i<num_chunks_;i++){
+      chunks_[i].reset();
+    }
+    chunks_.clear();
+  }
+  if(num_buffers_ > 0){
+    for(i=0;i<num_buffers_;i++){
+      buffers_[i].reset();
+    }
+    buffers_.clear();
+  }
+  if(num_checkpoint_ > 0){
+    for(i=0;i<num_checkpoint_;i++){
+      checkpoints_[i].reset();
+    }
+    checkpoints_.clear();
   }
 }
 
