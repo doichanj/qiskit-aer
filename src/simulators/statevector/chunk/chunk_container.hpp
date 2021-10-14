@@ -703,6 +703,7 @@ public:
   }
   virtual void request_creg_update(void){}
 
+  virtual void apply_matrix(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const cvector_t<double> &mat,const uint_t count){}
 
 protected:
   int convert_blocked_qubit(int qubit)

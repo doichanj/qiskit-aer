@@ -735,6 +735,16 @@ size_t Controller::get_gpu_memory_mb() {
     total_physical_memory += totalMem;
   }
   num_gpus_ = nDev;
+#ifdef AER_CUSTATEVEC
+  //initialize custatevevtor handle once before actual calculation (takes long time at first call)
+  custatevecStatus_t err;
+  custatevecHandle_t stHandle;
+  err = custatevecCreate(&stHandle);
+  if(err == CUSTATEVEC_STATUS_SUCCESS){
+    custatevecDestroy(stHandle);
+  }
+#endif
+
 #endif
 #ifdef AER_MPI
   // get minimum memory size per process

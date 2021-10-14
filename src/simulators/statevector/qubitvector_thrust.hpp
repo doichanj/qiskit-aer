@@ -2243,6 +2243,9 @@ void QubitVectorThrust<data_t>::apply_matrix(const reg_t &qubits,
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  chunk_.apply_matrix(qubits,0,mat,chunk_.container()->num_chunks());
+#else
   const size_t N = qubits.size();
   auto qubits_sorted = qubits;
   std::sort(qubits_sorted.begin(), qubits_sorted.end());
@@ -2278,7 +2281,7 @@ void QubitVectorThrust<data_t>::apply_matrix(const reg_t &qubits,
 
     apply_function(f);
   }
-
+#endif
 }
 
 template <typename data_t>
@@ -2487,6 +2490,14 @@ void QubitVectorThrust<data_t>::apply_diagonal_matrix(const reg_t &qubits,
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  //convert diagonal elements to matrix unless cuQuantum has no diagonal matrix multiplication
+  cvector_t<double> mat(diag.size()*diag.size(),0.0);
+  for(int_t i=0;i<diag.size();i++){
+    mat[i*(diag.size()+1)] = diag[i];
+  }
+  chunk_.apply_matrix(qubits,0,mat,chunk_.container()->num_chunks());
+#else
   const int_t N = qubits.size();
 
   if(N == 1){
@@ -2506,6 +2517,7 @@ void QubitVectorThrust<data_t>::apply_diagonal_matrix(const reg_t &qubits,
 
     apply_function(DiagonalMultNxN<data_t>(qubits));
   }
+#endif
 }
 
 
@@ -2684,6 +2696,9 @@ void QubitVectorThrust<data_t>::apply_mcx(const reg_t &qubits)
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  chunk_.apply_matrix(qubits,qubits.size()-1,Linalg::VMatrix::X,chunk_.container()->num_chunks());
+#else
   if(register_blocking_){
     int i;
     uint_t mask = 0;
@@ -2695,6 +2710,7 @@ void QubitVectorThrust<data_t>::apply_mcx(const reg_t &qubits)
   else{
     apply_function(CX_func<data_t>(qubits));
   }
+#endif
 }
 
 
@@ -2767,6 +2783,9 @@ void QubitVectorThrust<data_t>::apply_mcy(const reg_t &qubits)
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  chunk_.apply_matrix(qubits,qubits.size()-1,Linalg::VMatrix::Y,chunk_.container()->num_chunks());
+#else
   if(register_blocking_){
     int i;
     uint_t mask = 0;
@@ -2778,6 +2797,7 @@ void QubitVectorThrust<data_t>::apply_mcy(const reg_t &qubits)
   else{
     apply_function(CY_func<data_t>(qubits));
   }
+#endif
 }
 
 template <typename data_t>
@@ -2863,7 +2883,11 @@ public:
 template <typename data_t>
 void QubitVectorThrust<data_t>::apply_mcswap(const reg_t &qubits)
 {
+#ifdef AER_CUSTATEVEC
+  chunk_.apply_matrix(qubits,qubits.size()-2,Linalg::VMatrix::SWAP,chunk_.container()->num_chunks());
+#else
   apply_function(CSwap_func<data_t>(qubits));
+#endif
 }
 
 
@@ -3136,6 +3160,9 @@ void QubitVectorThrust<data_t>::apply_mcphase(const reg_t &qubits, const std::co
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  chunk_.apply_matrix(qubits,qubits.size()-1,Linalg::VMatrix::phase(phase),chunk_.container()->num_chunks());
+#else
   if(register_blocking_){
     int i;
     uint_t mask = 0;
@@ -3147,6 +3174,7 @@ void QubitVectorThrust<data_t>::apply_mcphase(const reg_t &qubits, const std::co
   else{
     apply_function(phase_func<data_t>(qubits,*(thrust::complex<double>*)&phase) );
   }
+#endif
 }
 
 template <typename data_t>
@@ -3287,6 +3315,9 @@ void QubitVectorThrust<data_t>::apply_mcu(const reg_t &qubits,
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  chunk_.apply_matrix(qubits,qubits.size()-1,mat,chunk_.container()->num_chunks());
+#else
   // Calculate the permutation positions for the last qubit.
   const size_t N = qubits.size();
 
@@ -3341,6 +3372,7 @@ void QubitVectorThrust<data_t>::apply_mcu(const reg_t &qubits,
       }
     }
   }
+#endif
 }
 
 
@@ -3355,6 +3387,10 @@ void QubitVectorThrust<data_t>::apply_matrix(const uint_t qubit,
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  reg_t qubits(1,qubit);
+  chunk_.apply_matrix(qubits,0,mat,chunk_.container()->num_chunks());
+#else
   // Check if matrix is diagonal and if so use optimized lambda
   if (mat[1] == 0.0 && mat[2] == 0.0) {
     const std::vector<std::complex<double>> diag = {{mat[0], mat[3]}};
@@ -3367,6 +3403,7 @@ void QubitVectorThrust<data_t>::apply_matrix(const uint_t qubit,
   else{
     apply_function(MatrixMult2x2<data_t>(mat,qubit));
   }
+#endif
 }
 
 template <typename data_t>
@@ -3376,6 +3413,14 @@ void QubitVectorThrust<data_t>::apply_diagonal_matrix(const uint_t qubit,
   if(((multi_chunk_distribution_ && chunk_.device() >= 0) || enable_batch_) && chunk_.pos() != 0)
     return;   //first chunk execute all in batch
 
+#ifdef AER_CUSTATEVEC
+  //convert diagonal elements to matrix unless cuQuantum has no diagonal matrix multiplication
+  cvector_t<double> mat(4,0.0);
+  mat[0] = diag[0];
+  mat[3] = diag[1];
+  reg_t qubits(1,qubit);
+  chunk_.apply_matrix(qubits,0,mat,chunk_.container()->num_chunks());
+#else
   if(register_blocking_){
     chunk_.queue_blocked_gate('d',qubit,0,&diag[0]);
   }
@@ -3383,6 +3428,7 @@ void QubitVectorThrust<data_t>::apply_diagonal_matrix(const uint_t qubit,
     reg_t qubits = {qubit};
     apply_function(DiagonalMult2x2<data_t>(diag,qubits[0]));
   }
+#endif
 }
 
 template <typename data_t>

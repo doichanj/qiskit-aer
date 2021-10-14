@@ -361,6 +361,10 @@ public:
       chunk_container_.lock()->keep_conditional(keep);
   }
 
+  void apply_matrix(const reg_t& qubits,const int_t control_bits,const cvector_t<double> &mat,const uint_t count)
+  {
+    chunk_container_.lock()->apply_matrix(chunk_pos_,qubits,control_bits,mat,count);
+  }
 
 };
 

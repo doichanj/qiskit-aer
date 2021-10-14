@@ -38,6 +38,18 @@ that have CUDA support you will have to build from source. You can refer to
 the [contributing guide](https://github.com/Qiskit/qiskit-aer/blob/master/CONTRIBUTING.md#building-with-gpu-support)
 for instructions on doing this.
 
+# Building GPU and cuQuantum support
+
+This experimental implementation supports accelelating simulation by using NVIDIA's cuQuantum APIs. 
+To build Aer with cuQuantum support, set the installed path of cuQuantum to CUSTATEVEC_ROOT variable to parameter of setup as following.
+
+```
+python setup.py -- -DAER_THRUST_BACKEND=CUDA -DCUSTATEVEC_ROOT=/usr/local/cuQuantum -DAER_CUDA_ARCH=7.0 --
+```
+
+Currently only supports genral gates in statevector method. cuQuantum is not used in measure, measure sampling, expectation functions in this release.
+
+
 ## Simulating your first quantum program with Qiskit Aer
 Now that you have Qiskit Aer installed, you can start simulating quantum circuits with noise. Here is a basic example:
 
