@@ -38,7 +38,7 @@ that have CUDA support you will have to build from source. You can refer to
 the [contributing guide](https://github.com/Qiskit/qiskit-aer/blob/master/CONTRIBUTING.md#building-with-gpu-support)
 for instructions on doing this.
 
-# Building GPU and cuQuantum support
+## Building GPU and cuQuantum support
 
 This experimental implementation supports accelelating simulation by using NVIDIA's cuQuantum APIs. 
 To build Aer with cuQuantum support, set the installed path of cuQuantum to CUSTATEVEC_ROOT variable to parameter of setup as following.
