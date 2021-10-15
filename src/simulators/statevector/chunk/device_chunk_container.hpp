@@ -395,6 +395,31 @@ uint_t DeviceChunkContainer<data_t>::Allocate(int idev,int chunk_bits,int num_qu
     str << "DeviceChunkContainer::allocate : " << custatevecGetErrorString(err);
     throw std::runtime_error(str.str());
   }
+
+  //allocate extra workspace for custatevec
+  std::vector<std::complex<double>> mat(1ull << (matrix_bit*2));
+
+  //count bits for multi-chunks
+  custatevec_chunk_total_bits_ = this->chunk_bits_;
+  custatevec_chunk_count_ = this->num_chunks_;
+  if(custatevec_chunk_count_ > 1){
+    while((custatevec_chunk_count_ & 1) == 0){
+      custatevec_chunk_count_ >>= 1;
+      custatevec_chunk_total_bits_++;
+    }
+  }
+
+  err = custatevecApplyMatrix_bufferSize(
+                  custatevec_handle_, CUDA_C_64F, custatevec_chunk_total_bits_ , &mat[0], CUDA_C_64F, CUSTATEVEC_MATRIX_LAYOUT_COL,
+                  0, matrix_bit, 0, CUSTATEVEC_COMPUTE_64F, &custatevec_work_size_);
+  if(err != CUSTATEVEC_STATUS_SUCCESS){
+    std::stringstream str;
+    str << "DeviceChunkContainer::ResizeMatrixBuffers : " << custatevecGetErrorString(err);
+    throw std::runtime_error(str.str());
+  }
+
+  if(custatevec_work_size_ > 0)
+    custatevec_work_.resize(custatevec_work_size_*num_matrices_);
 #endif
 
   reduce_buffer_size_ *= 2;
@@ -520,35 +545,6 @@ void DeviceChunkContainer<data_t>::ResizeMatrixBuffers(int bits)
       params_.resize(n * size);
     }
   }
-
-#ifdef AER_CUSTATEVEC
-  //allocate extra workspace for custatevec
-  custatevecStatus_t err;
-  std::vector<std::complex<double>> mat(1ull << (bits*2));
-
-  //count bits for multi-chunks
-  custatevec_chunk_total_bits_ = this->chunk_bits_;
-  custatevec_chunk_count_ = this->num_chunks_;
-  if(custatevec_chunk_count_ > 0){
-    while((custatevec_chunk_count_ & 1) == 0){
-      custatevec_chunk_count_ >>= 1;
-      custatevec_chunk_total_bits_++;
-    }
-  }
-
-  err = custatevecApplyMatrix_bufferSize(
-                  custatevec_handle_, CUDA_C_64F, custatevec_chunk_total_bits_ , &mat[0], CUDA_C_64F, CUSTATEVEC_MATRIX_LAYOUT_COL,
-                  0, bits, 0, CUSTATEVEC_COMPUTE_64F, &custatevec_work_size_);
-  if(err != CUSTATEVEC_STATUS_SUCCESS){
-    std::stringstream str;
-    str << "DeviceChunkContainer::ResizeMatrixBuffers : " << custatevecGetErrorString(err);
-    throw std::runtime_error(str.str());
-  }
-
-  if(custatevec_work_size_ > 0)
-    custatevec_work_.resize(custatevec_work_size_*num_matrices_);
-#endif
-
 }
 
 template <typename data_t>
@@ -1425,7 +1421,7 @@ void DeviceChunkContainer<data_t>::apply_matrix(const uint_t iChunk,const reg_t&
 
   custatevecStatus_t err;
   for(int_t i=0;i<nc;i++){
-    err = custatevecApplyMatrix(custatevec_handle_, chunk_pointer(iChunk+i), CUDA_C_64F, bits, pMat, CUDA_C_64F,
+    err = custatevecApplyMatrix(custatevec_handle_, chunk_pointer(iChunk) + (i << bits), CUDA_C_64F, bits, pMat, CUDA_C_64F,
                           CUSTATEVEC_MATRIX_LAYOUT_COL, 0, pQubits, qubits.size()-control_bits, pControl, control_bits, 
                           nullptr, CUSTATEVEC_COMPUTE_64F, custatevec_work_pointer(iChunk), custatevec_work_size_);
     if(err != CUSTATEVEC_STATUS_SUCCESS){
