@@ -294,11 +294,19 @@ protected:
   int_t get_matrix_bits(const Operations::Op& op) const;
 
   //sample noise
-  Circuit sample_circuit(const Circuit &circ,
-                                   const Noise::NoiseModel &noise,
-                                   RngEngine &rng,
-                                   const Method method,
-                                   ExperimentResult &result,bool multi_chunk,bool &noise_sampling) const;
+  bool sample_noise_static(const Circuit &circ,
+                           const Noise::NoiseModel &noise,
+                           const Method method,
+                           const bool multi_chunk,
+                           RngEngine &rng,
+                           Circuit &opt_circ,
+                           ExperimentResult &result) const;
+
+  //set result metadata and status
+  void finalize_result(Result& result,
+                       const std::vector<Circuit> &circuits,
+                       const std::vector<Controller::Method> &methods,
+                       const json_t &config) const;
 
   //-----------------------------------------------------------------------
   // Parallelization Config
@@ -609,46 +617,63 @@ void Controller::set_parallelization_experiments(
       }
     }
   }
+
   if(max_qubits_ == 0)
     max_qubits_ = 1;
 
-  if(explicit_parallelization_ )
-    return;
+  if(!explicit_parallelization_ ) {
 
-  if(circuits.size() == 1){
-    parallel_experiments_ = 1;
-    return;
+    // Use a local variable to not override stored maximum based
+    // on currently executed circuits
+    const auto max_experiments =
+        (max_parallel_experiments_ > 0)
+            ? std::min({max_parallel_experiments_, max_parallel_threads_})
+            : max_parallel_threads_;
+
+    if(circuits.size() == 1 || max_experiments == 1){
+      // No parallel experiment execution
+      parallel_experiments_ = 1;
+    } else {
+      // If memory allows, execute experiments in parallel
+      size_t total_memory = 0;
+      int parallel_experiments = 0;
+      for (size_t required_memory_mb : required_memory_mb_list) {
+        total_memory += required_memory_mb;
+        if (total_memory > max_memory_mb_)
+          break;
+        ++parallel_experiments;
+      }
+
+      if (parallel_experiments <= 0)
+        throw std::runtime_error(
+            "a circuit requires more memory than max_memory_mb.");
+      parallel_experiments_ =
+          std::min<int>({parallel_experiments, max_experiments,
+                         max_parallel_threads_, static_cast<int>(circuits.size())});
+    }
   }
 
-  // Use a local variable to not override stored maximum based
-  // on currently executed circuits
-  const auto max_experiments =
-      (max_parallel_experiments_ > 0)
-          ? std::min({max_parallel_experiments_, max_parallel_threads_})
-          : max_parallel_threads_;
-
-  if (max_experiments == 1) {
-    // No parallel experiment execution
-    parallel_experiments_ = 1;
-    return;
+#ifdef _OPENMP
+  // Check if circuit parallelism is nested with one of the others
+  if (parallel_experiments_ > 1 &&
+      parallel_experiments_ < max_parallel_threads_) {
+    // Nested parallel experiments
+    parallel_nested_ = true;
+#ifdef _WIN32
+    omp_set_nested(1);
+#else
+    omp_set_max_active_levels(3);
+#endif
+  } else {
+    parallel_nested_ = false;
+#ifdef _WIN32
+    omp_set_nested(0);
+#else
+    omp_set_max_active_levels(1);
+#endif
   }
+#endif
 
-  // If memory allows, execute experiments in parallel
-  size_t total_memory = 0;
-  int parallel_experiments = 0;
-  for (size_t required_memory_mb : required_memory_mb_list) {
-    total_memory += required_memory_mb;
-    if (total_memory > max_memory_mb_)
-      break;
-    ++parallel_experiments;
-  }
-
-  if (parallel_experiments <= 0)
-    throw std::runtime_error(
-        "a circuit requires more memory than max_memory_mb.");
-  parallel_experiments_ =
-      std::min<int>({parallel_experiments, max_experiments,
-                     max_parallel_threads_, static_cast<int>(circuits.size())});
 }
 
 void Controller::set_parallelization_circuit(const Circuit &circ,
@@ -907,12 +932,8 @@ Result Controller::execute(std::vector<Circuit> &circuits,
     std::vector<bool> multi_chunk(circuits.size());
     bool multi_chunk_req = false;
     for (size_t j = 0; j < circuits.size(); j++){
-      multi_chunk[j] = false;
-      if(circuits[j].num_qubits > 0){
-        multi_chunk[j] = multiple_chunk_required(circuits[j], noise_model, methods[j]);
-        if(multi_chunk[j])
-          multi_chunk_req = true;
-      }
+      multi_chunk[j] = multiple_chunk_required(circuits[j], noise_model, methods[j]);
+      multi_chunk_req |= multi_chunk[j];
     }
     if(multi_chunk_req)
       num_process_per_experiment_ = num_processes_;
@@ -928,74 +949,7 @@ Result Controller::execute(std::vector<Circuit> &circuits,
       save_exception_to_results(result, e);
     }
 
-#ifdef _OPENMP
-    result.metadata.add(true, "omp_enabled");
-#else
-    result.metadata.add(false, "omp_enabled");
-#endif
-    result.metadata.add(parallel_experiments_, "parallel_experiments");
-    result.metadata.add(max_memory_mb_, "max_memory_mb");
-    result.metadata.add(max_gpu_memory_mb_, "max_gpu_memory_mb");
-
-    // store rank and number of processes, if no distribution rank=0 procs=1 is
-    // set
-    result.metadata.add(num_processes_, "num_mpi_processes");
-    result.metadata.add(myrank_, "mpi_rank");
-
-#ifdef _OPENMP
-    // Check if circuit parallelism is nested with one of the others
-    if (parallel_experiments_ > 1 &&
-        parallel_experiments_ < max_parallel_threads_) {
-      // Nested parallel experiments
-      parallel_nested_ = true;
-#ifdef _WIN32
-      omp_set_nested(1);
-#else
-      omp_set_max_active_levels(3);
-#endif
-      result.metadata.add(parallel_nested_, "omp_nested");
-    } else {
-      parallel_nested_ = false;
-#ifdef _WIN32
-      omp_set_nested(0);
-#else
-      omp_set_max_active_levels(1);
-#endif
-    }
-#endif
-
     const int NUM_RESULTS = result.results.size();
-    bool batch_enable = true;
-
-#pragma omp parallel for if(NUM_RESULTS > 1)
-    for (int j = 0; j < NUM_RESULTS; ++j) {
-      // Initialize circuit json return
-      result.results[j].legacy_data.set_config(config);
-
-      // Output data container
-      result.results[j].set_config(config);
-      result.results[j].metadata.add(method_names_.at(methods[j]), "method");
-      if (methods[j] == Method::statevector || methods[j] == Method::density_matrix ||
-          methods[j] == Method::unitary) {
-        result.results[j].metadata.add(sim_device_name_, "device");
-      } else {
-        result.results[j].metadata.add("CPU", "device");
-      }
-      // Add measure sampling to metadata
-      // Note: this will set to `true` if sampling is enabled for the circuit
-      result.results[j].metadata.add(false, "measure_sampling");
-
-      // Circuit qubit metadata
-      result.results[j].metadata.add(circuits[j].num_qubits, "num_qubits");
-      result.results[j].metadata.add(circuits[j].num_memory, "num_clbits");
-      result.results[j].metadata.add(circuits[j].qubits(), "active_input_qubits");
-      result.results[j].metadata.add(circuits[j].qubit_map(), "input_qubit_map");
-      result.results[j].metadata.add(circuits[j].remapped_qubits, "remapped_qubits");
-
-      result.results[j].header = circuits[j].header;
-      result.results[j].shots = circuits[j].shots;
-      result.results[j].seed = circuits[j].seed;
-    }
 
     if(enable_batch_multi_circuits_ && !multi_chunk_req){
       //batched execution of multi-circuits
@@ -1025,24 +979,8 @@ Result Controller::execute(std::vector<Circuit> &circuits,
       }
     }
 
-    // Check each experiment result for completed status.
-    // If only some experiments completed return partial completed status.
-
-    bool all_failed = true;
-    result.status = Result::Status::completed;
-    for (int i = 0; i < NUM_RESULTS; ++i) {
-      auto &experiment = result.results[i];
-      if (experiment.status == ExperimentResult::Status::completed) {
-        all_failed = false;
-      } else {
-        result.status = Result::Status::partial_completed;
-        result.message += std::string(" [Experiment ") + std::to_string(i) +
-                          std::string("] ") + experiment.message;
-      }
-    }
-    if (all_failed) {
-      result.status = Result::Status::error;
-    }
+    // Save metadata and status into result
+    finalize_result(result, circuits, methods, config);
 
     // Stop the timer and add total timing data
     auto timer_stop = myclock_t::now();
@@ -1056,6 +994,81 @@ Result Controller::execute(std::vector<Circuit> &circuits,
     result.message = e.what();
   }
   return result;
+}
+
+void Controller::finalize_result(Result& result,
+                                 const std::vector<Circuit> &circuits,
+                                 const std::vector<Controller::Method> &methods,
+                                 const json_t &config) const
+{
+  // Check each experiment result for completed status.
+  // If only some experiments completed return partial completed status.
+
+  bool all_failed = true;
+  result.status = Result::Status::completed;
+  for (int i = 0; i < result.results.size(); ++i) {
+    auto &experiment = result.results[i];
+    if (experiment.status == ExperimentResult::Status::completed) {
+      all_failed = false;
+    } else {
+      result.status = Result::Status::partial_completed;
+      result.message += std::string(" [Experiment ") + std::to_string(i) +
+                        std::string("] ") + experiment.message;
+    }
+  }
+  if (all_failed) {
+    result.status = Result::Status::error;
+  }
+
+  // Set metadata
+  result.metadata.add(parallel_experiments_, "parallel_experiments");
+  result.metadata.add(max_memory_mb_, "max_memory_mb");
+  result.metadata.add(max_gpu_memory_mb_, "max_gpu_memory_mb");
+
+  // store rank and number of processes, if no distribution rank=0 procs=1 is
+  // set
+  result.metadata.add(num_processes_, "num_mpi_processes");
+  result.metadata.add(myrank_, "mpi_rank");
+
+#ifdef _OPENMP
+  result.metadata.add(true, "omp_enabled");
+  // Check if circuit parallelism is nested with one of the others
+  if (parallel_experiments_ > 1 &&
+      parallel_experiments_ < max_parallel_threads_) {
+    // Nested parallel experiments
+    result.metadata.add(parallel_nested_, "omp_nested");
+  }
+#else
+  result.metadata.add(false, "omp_enabled");
+#endif
+
+  const int NUM_RESULTS = result.results.size();
+#pragma omp parallel for if(NUM_RESULTS > 1)
+  for (int j = 0; j < NUM_RESULTS; ++j) {
+    // Initialize circuit json return
+    result.results[j].legacy_data.set_config(config);
+
+    // Output data container
+    result.results[j].set_config(config);
+    result.results[j].metadata.add(method_names_.at(methods[j]), "method");
+    if (methods[j] == Method::statevector || methods[j] == Method::density_matrix ||
+        methods[j] == Method::unitary) {
+      result.results[j].metadata.add(sim_device_name_, "device");
+    } else {
+      result.results[j].metadata.add("CPU", "device");
+    }
+
+    // Circuit qubit metadata
+    result.results[j].metadata.add(circuits[j].num_qubits, "num_qubits");
+    result.results[j].metadata.add(circuits[j].num_memory, "num_clbits");
+    result.results[j].metadata.add(circuits[j].qubits(), "active_input_qubits");
+    result.results[j].metadata.add(circuits[j].qubit_map(), "input_qubit_map");
+    result.results[j].metadata.add(circuits[j].remapped_qubits, "remapped_qubits");
+
+    result.results[j].header = circuits[j].header;
+    result.results[j].shots = circuits[j].shots;
+    result.results[j].seed = circuits[j].seed;
+  }
 }
 
 void Controller::save_count_data(ExperimentResult &result,
@@ -1412,14 +1425,14 @@ void Controller::run_circuit_helper(const Circuit &circ,
     result.metadata.add(false, "batched_shots_optimization");
 
     if(circ.num_qubits > 0){  //do nothing for query steps
-      bool noise_sampling = false;
-      // Choose execution method based on noise and method
-      Circuit opt_circ = sample_circuit(circ,noise,rng,method,result,multi_chunk,noise_sampling);
-
-      if(noise_sampling){
-        run_circuit_with_sampled_noise<State_t>(circ, noise, config, method, result);
-      }
-      else{
+      Circuit opt_circ;
+      if (!sample_noise_static(circ, noise, method, multi_chunk, rng, opt_circ, result)) {
+        if (noise.is_ideal()) {
+          run_circuit_without_sampled_noise<State_t>(opt_circ, noise, config, method, result);
+        } else {
+          run_circuit_with_sampled_noise<State_t>(circ, noise, config, method, result);
+        }
+      } else {
         // Run multishot simulation without noise sampling
         run_circuit_without_sampled_noise<State_t>(opt_circ, noise, config, method, result);
       }
@@ -1481,9 +1494,9 @@ void Controller::run_circuit_helper(const std::vector<Circuit> &circs,
     for (i_circ=0;i_circ< circs.size(); i_circ++) {
       rng[i_circ].set_seed(circs[i_circ].seed);
 
-      bool noise_sampling;
-      Circuit circ = sample_circuit(circs[i_circ],noise,rng[i_circ],method,result.results[i_circ],multi_chunk,noise_sampling);
-      if(noise_sampling)
+      Circuit circ;
+      bool sampled = sample_noise_static(circs[i_circ], noise, method, multi_chunk, rng[i_circ], circ, result.results[i_circ]);
+      if(!sampled && !noise.is_ideal())
         throw std::runtime_error("Controller : batched experiments with noise sampling is not supported");
 
       Noise::NoiseModel dummy_noise;
@@ -1553,51 +1566,53 @@ void Controller::run_single_shot(const Circuit &circ, State_t &state,
   save_count_data(result, state.creg());
 }
 
-Circuit Controller::sample_circuit(const Circuit &circ,
-                                   const Noise::NoiseModel &noise,
-                                   RngEngine &rng,
-                                   const Method method,
-                                   ExperimentResult &result,bool multi_chunk,bool &noise_sampling) const
+bool Controller::sample_noise_static(const Circuit &circ,
+                                     const Noise::NoiseModel &noise,
+                                     const Method method,
+                                     const bool multi_chunk,
+                                     RngEngine &rng,
+                                     Circuit &opt_circ,
+                                     ExperimentResult &result) const
 {
   // Choose execution method based on noise and method
-  Circuit opt_circ;
 
   // Ideal circuit
   if (noise.is_ideal()) {
     opt_circ = circ;
     result.metadata.add("ideal", "noise");
+    return false;
   }
   // Readout error only
   else if (noise.has_quantum_errors() == false) {
     opt_circ = noise.sample_noise(circ, rng);
     result.metadata.add("readout", "noise");
+    return true;
   }
   // Superop noise sampling
   else if (method == Method::density_matrix || method == Method::superop) {
     // Sample noise using SuperOp method
     opt_circ = noise.sample_noise(circ, rng, Noise::NoiseModel::Method::superop);
     result.metadata.add("superop", "noise");
+    return true;
   }
   // Kraus noise sampling
   else if (noise.opset().contains(Operations::OpType::kraus) ||
            noise.opset().contains(Operations::OpType::superop)) {
     opt_circ = noise.sample_noise(circ, rng, Noise::NoiseModel::Method::kraus);
     result.metadata.add("kraus", "noise");
+    return true;
   }
   // General circuit noise sampling
-  else {
-    if(enable_batch_multi_shots_ && !enable_batch_multi_circuits_ && !multi_chunk){
-      //for GPU noise sampling is done at runtime
-      opt_circ = noise.sample_noise(circ, rng, Noise::NoiseModel::Method::circuit, true);
-    }
-    else{
-      opt_circ = circ;
-      noise_sampling = true;
-    }
+  else if(enable_batch_multi_shots_ && !enable_batch_multi_circuits_ && !multi_chunk){
+    //for GPU noise sampling is done at runtime
+    opt_circ = noise.sample_noise(circ, rng, Noise::NoiseModel::Method::circuit, true);
     result.metadata.add("circuit", "noise");
+    return true;
   }
-
-  return opt_circ;
+  else{
+    result.metadata.add("circuit", "noise");
+    return false;
+  }
 }
 
 template <class State_t>
