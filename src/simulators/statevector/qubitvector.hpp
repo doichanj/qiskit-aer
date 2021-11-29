@@ -36,9 +36,6 @@
 #include "framework/utils.hpp"
 #include "framework/linalg/vector.hpp"
 
-
-#include "simulators/statevector/batched_matrix.hpp"
-
 namespace AER {
 namespace QV {
 template <typename T> using cvector_t = std::vector<std::complex<T>>;
@@ -162,8 +159,6 @@ public:
 
   void set_max_matrix_bits(int_t bits){}
 
-  void end_of_circuit(){}
-
   //-----------------------------------------------------------------------
   // Check point operations
   //-----------------------------------------------------------------------
@@ -225,9 +220,6 @@ public:
   // Swap pairs of indicies in the underlying vector
   void apply_permutation_matrix(const reg_t &qubits,
                                 const std::vector<std::pair<uint_t, uint_t>> &pairs);
-
-  //batched matrix is used for GPU optimization
-  void apply_batched_matrix(std::vector<batched_matrix_params>& params,reg_t& qubits,std::vector<std::complex<double>>& matrices){}
 
   //-----------------------------------------------------------------------
   // Apply Specialized Gates
@@ -294,7 +286,7 @@ public:
 
 
   //-----------------------------------------------------------------------
-  // for batched optimization (these are not used for CPU)
+  // for batched optimization (Implement them if CPU simulator supports multi-shots)
   //-----------------------------------------------------------------------
   virtual bool batched_optimization_supported(void)
   {
@@ -304,18 +296,19 @@ public:
   virtual void set_conditional(int_t reg){}
   virtual void apply_roerror(const Operations::Op &op, std::vector<RngEngine> &rng){}
 
-  //optimized batched measure
+  //optimized batched measure/reset
   virtual void apply_batched_measure(const reg_t& qubits,std::vector<RngEngine>& rng,const reg_t& cmemory,const reg_t& cregs){}
   virtual void apply_batched_reset(const reg_t& qubits,std::vector<RngEngine>& rng){}
 
-  virtual int measured_cregister(int qubit){return -1;}
-  virtual int measured_cmemory(int qubit){return -1;}
+  //copy classical register stored on qreg 
+  void get_creg(ClassicalRegister& creg){}
+
   virtual int_t set_batched_system_conditional(int_t src_reg, reg_t& mask){return -1;}
 
-  //runtime noise sampling
-  virtual void apply_batched_pauli(const Operations::Op &op, reg_t& idx){}
+  //apply Pauli ops to multiple-shots (apply sampled Pauli noises)
+  virtual void apply_batched_pauli_ops(const std::vector<std::vector<Operations::Op>> &op){}
 
-  //Apply Kraus 
+  //Apply Kraus to multiple-shots
   void apply_batched_kraus(const reg_t &qubits,
                    const std::vector<cmatrix_t> &kmats,
                    std::vector<RngEngine>& rng){}

@@ -67,7 +67,7 @@ public:
         const stringset_t &snapshots)
     : State(Operations::OpSet(optypes, gates, snapshots)) {};
 
-  virtual ~State() = default;
+  virtual ~State();
 
   //-----------------------------------------------------------------------
   // Data accessors
@@ -78,8 +78,8 @@ public:
   const auto &qreg() const { return qreg_; }
 
   // Return the state creg object
-  auto &creg(uint_t idx=0) { return creg_; }
-  const auto &creg(uint_t idx=0) const { return creg_; }
+  auto &creg() { return creg_; }
+  const auto &creg() const { return creg_; }
 
   // Return the state opset object
   auto &opset() { return opset_; }
@@ -103,9 +103,6 @@ public:
   // Return a string name for the State type
   virtual std::string name() const = 0;
 
-  //store asynchronously measured classical bits after batched execution
-  virtual void store_measured_cbits(void) {}
-
   // Initializes the State to the default state.
   // Typically this is the n-qubit all |0> state
   virtual void initialize_qreg(uint_t num_qubits) = 0;
@@ -121,8 +118,6 @@ public:
 
   //memory allocation (previously called before inisitalize_qreg)
   virtual bool allocate(uint_t num_qubits,uint_t block_bits,uint_t num_parallel_shots = 1){return true;}
-  virtual bool bind_state(State<state_t>& state,uint_t ishot,bool batch_enable){return true;}
-
 
   // Return the expectation value of a N-qubit Pauli operator
   // If the simulator does not support Pauli expectation value this should
@@ -160,14 +155,6 @@ public:
                                             uint_t shots,
                                             RngEngine &rng);
 
-  virtual reg_t batched_sample_measure(const reg_t &qubits,
-                                            reg_t& shots,
-                                            std::vector<RngEngine> &rng)
-  {
-    reg_t dummy;
-    return dummy;
-  }
-
   //=======================================================================
   // Standard non-virtual methods
   //
@@ -187,14 +174,6 @@ public:
                         RngEngine& rng,
                         bool final_op = false) = 0;
 
-  //for multi-shot optimization
-  virtual void apply_op_multi_shots(const Operations::Op &op,
-                        ExperimentResult &result,
-                        std::vector<RngEngine>& rng,
-                        bool final_op = false)
-  {
-    apply_op(op,result,rng[0],final_op);
-  }
 
   // Apply a sequence of operations to the current state of the State class.
   // It is up to the State subclass to decide how this sequence should be
@@ -211,23 +190,18 @@ public:
                  RngEngine &rng,
                  bool final_ops = false);
 
-  virtual void set_max_matrix_bits(int_t bits)
+  //apply ops to multiple shots
+  //this function should be separately defined since apply_ops is called in quantum_error
+  template <typename InputIterator>
+  void apply_ops_multi_shots(InputIterator first,
+                 InputIterator last,
+                 const Noise::NoiseModel &noise,
+                 ExperimentResult &result,
+                 uint_t rng_seed,
+                 bool final_ops = false)
   {
-    max_matrix_bits_ = bits;
+    throw std::invalid_argument("apply_ops_multi_shots is not supported in State " + name());
   }
-
-  //for batched apply op
-  virtual void apply_batched_ops(const std::vector<Operations::Op> &ops){}
-  virtual void enable_batch(bool flg){}
-  virtual bool batchable_op(const Operations::Op& op,bool single_op = true){return false;}
-
-  virtual bool top_of_group(){return true;}  //check if this register is on the top of group
-
-  virtual void apply_batched_pauli(const Operations::Op &op, reg_t& idx){}
-  virtual void apply_batched_noise_circuits(const Operations::Op &op, ExperimentResult &result,
-                                               std::vector<RngEngine> &rng, reg_t& idx){}
-
-  virtual void end_of_circuit(){};
 
   //-----------------------------------------------------------------------
   // ClassicalRegister methods
@@ -241,9 +215,6 @@ public:
                        uint_t num_register,
                        const std::string &memory_hex,
                        const std::string &register_hex);
-
-  //set conditional regisiter (if op is conditional)
-  virtual void set_conditional(const Operations::Op &op){}
 
   //-----------------------------------------------------------------------
   // Save result data
@@ -290,6 +261,10 @@ public:
                          const std::string &key, T&& datum,
                          DataSubType type = DataSubType::list) const;
 
+
+  //save creg as count data 
+  virtual void save_count_data(ExperimentResult& result,bool save_memory);
+
   //-----------------------------------------------------------------------
   // Common instructions
   //-----------------------------------------------------------------------
@@ -303,7 +278,7 @@ public:
 
   // Snapshot the current statevector (single-shot)
   // if type_label is the empty string the operation type will be used for the type
-  void snapshot_state(const Operations::Op &op, ExperimentResult &result,
+  virtual void snapshot_state(const Operations::Op &op, ExperimentResult &result,
                       std::string name = "") const;
 
   // Snapshot the classical memory bits state (single-shot)
@@ -321,7 +296,7 @@ public:
 
   // Sets the number of threads available to the State implementation
   // If negative there is no restriction on the backend
-  inline void set_parallelization(int n) {threads_ = n;}
+  virtual inline void set_parallelization(int n) {threads_ = n;}
 
   // Set a complex global phase value exp(1j * theta) for the state
   void set_global_phase(double theta);
@@ -330,8 +305,21 @@ public:
   void add_global_phase(double theta);
 
   //set number of processes to be distributed
-  void set_distribution(uint_t nprocs){}
+  virtual void set_distribution(uint_t nprocs){}
 
+  //set maximum number of qubits for matrix multiplication
+  virtual void set_max_matrix_qubits(int_t bits)
+  {
+    max_matrix_qubits_ = bits;
+  }
+
+  //set max number of shots to execute in a batch (used in StateChunk class)
+  virtual void set_max_bached_shots(uint_t shots){}
+
+  //Does this state support multi-chunk distribution?
+  virtual bool multi_chunk_distribution_supported(void){return false;}
+  //Does this state support multi-shot parallelization?
+  virtual bool multi_shot_parallelization_supported(void){return false;}
 
 protected:
 
@@ -352,20 +340,18 @@ protected:
   bool has_global_phase_ = false;
   complex_t global_phase_ = 1;
 
-  uint_t shot_index_ = 0;
-
-  int_t max_matrix_bits_ = 0;
-
-  virtual void apply_bfunc(const Operations::Op &op)
-  {
-    creg_.apply_bfunc(op);
-  }
+  int_t max_matrix_qubits_ = 0;
 };
 
 
 //=========================================================================
 // Implementations
 //=========================================================================
+
+template <class state_t>
+State<state_t>::~State(void)
+{
+}
 
 template <class state_t>
 void State<state_t>::set_config(const json_t &config) {
@@ -633,6 +619,17 @@ void State<state_t>::apply_save_expval(const Operations::Op &op,
   }
 }
 
+template <class state_t>
+void State<state_t>::save_count_data(ExperimentResult& result,bool save_memory)
+{
+  if (creg_.memory_size() > 0) {
+    std::string memory_hex = creg_.memory_hex();
+    result.data.add_accum(static_cast<uint_t>(1ULL), "counts", memory_hex);
+    if(save_memory) {
+      result.data.add_list(std::move(memory_hex), "memory");
+    }
+  }
+}
 
 //-------------------------------------------------------------------------
 } // end namespace Base

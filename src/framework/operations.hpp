@@ -37,10 +37,10 @@ enum class RegComparison {Equal, NotEqual, Less, LessEqual, Greater, GreaterEqua
 
 // Enum class for operation types
 enum class OpType {
-  gate, measure, reset, bfunc, barrier, snapshot,
+  gate, measure, reset, bfunc, barrier, qerror_loc, snapshot,
   matrix, diagonal_matrix, multiplexer, initialize, sim_op, nop,
   // Noise instructions
-  kraus, superop, roerror, noise_switch, runtime_error, 
+  kraus, superop, roerror, noise_switch, 
   // Save instructions
   save_state, save_expval, save_expval_var, save_statevec, save_statevec_dict,
   save_densmat, save_probs, save_probs_ket, save_amps, save_amps_sq,
@@ -159,11 +159,11 @@ inline std::ostream& operator<<(std::ostream& stream, const OpType& type) {
   case OpType::roerror:
     stream << "roerror";
     break;
+  case OpType::qerror_loc:
+    stream << "qerror_loc";
+    break;
   case OpType::noise_switch:
     stream << "noise_switch";
-    break;
-  case OpType::runtime_error:
-    stream << "runtime_error";
     break;
   case OpType::initialize:
     stream << "initialize";
@@ -217,9 +217,6 @@ struct Op {
   // Set states
   Clifford::Clifford clifford;
   mps_container_t mps;
-
-  //circuits selected by probability (used for runtime_error)
-  std::vector<std::vector<Op>> circs;
 
   // Legacy Snapshots
   DataSubType save_type = DataSubType::single;
@@ -557,6 +554,8 @@ template<typename inputdata_t>
 Op input_to_op_kraus(const inputdata_t& input);
 template<typename inputdata_t>
 Op input_to_op_noise_switch(const inputdata_t& input);
+template<typename inputdata_t>
+Op input_to_op_qerror_loc(const inputdata_t& input);
 
 // Classical bits
 template<typename inputdata_t>
@@ -648,13 +647,15 @@ Op input_to_op(const inputdata_t& input) {
   // Noise functions
   if (name == "noise_switch")
     return input_to_op_noise_switch(input);
+  if (name == "qerror_loc")
+    return input_to_op_qerror_loc(input);
   if (name == "multiplexer")
     return input_to_op_multiplexer(input);
   if (name == "kraus")
     return input_to_op_kraus(input);
   if (name == "roerror")
     return input_to_op_roerror(input);
-   if (name == "pauli")
+  if (name == "pauli")
     return input_to_op_pauli(input);
   // Default assume gate
   return input_to_op_gate(input);
@@ -731,6 +732,16 @@ Op input_to_op_gate(const inputdata_t& input) {
     check_length_params(op, 2);
   else if (op.name == "u3")
     check_length_params(op, 3);
+  return op;
+}
+
+template<typename inputdata_t>
+Op input_to_op_qerror_loc(const inputdata_t& input) {
+  Op op;
+  op.type = OpType::qerror_loc;
+  Parser<inputdata_t>::get_value(op.name, "label", input);
+  Parser<inputdata_t>::get_value(op.qubits, "qubits", input);
+  add_conditional(Allowed::Yes, op, input);
   return op;
 }
 

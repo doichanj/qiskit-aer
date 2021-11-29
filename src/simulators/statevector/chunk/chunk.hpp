@@ -131,10 +131,6 @@ public:
   {
     chunk_index_ = id;
   }
-  void enable_omp(bool flg)
-  {
-    chunk_container_.lock()->enable_omp(flg);
-  }
 
   uint_t matrix_bits(void)
   {
@@ -175,10 +171,6 @@ public:
       chunk_container_.lock()->StoreMatrix(mat,chunk_pos_);
     }
   }
-  void StoreBatchedMatrix(const std::vector<std::complex<double>>& mat)
-  {
-    chunk_container_.lock()->StoreBatchedMatrix(mat);
-  }
   void StoreMatrix(const std::complex<double>* mat,uint_t size)
   {
     if(cache_){
@@ -196,10 +188,6 @@ public:
     else{
       chunk_container_.lock()->StoreUintParams(prm,chunk_pos_);
     }
-  }
-  void StoreBatchedParams(const std::vector<batched_matrix_params>& prm)
-  {
-    chunk_container_.lock()->StoreBatchedParams(prm);
   }
 
   void ResizeMatrixBuffers(int bits)
