@@ -30,7 +30,7 @@ jobs:
       - name: Publish Wheels
         env:
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-          TWINE_USERNAME: qiskit
+          TWINE_USERNAME: doichan
         run : |
           pip install -U twine
           twine upload --repository-url https://test.pypi.org/legacy/ wheelhouse/*
