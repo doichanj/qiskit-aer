@@ -33,4 +33,4 @@ jobs:
           TWINE_USERNAME: doichan
         run : |
           pip install -U twine
-          twine upload wheelhouse/*
+          twine upload --repository testpypi wheelhouse/*
