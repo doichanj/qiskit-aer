@@ -134,7 +134,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Topic :: Scientific/Engineering",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.9",
     install_requires=requirements,
     setup_requires=setup_requirements,
     include_package_data=True,
