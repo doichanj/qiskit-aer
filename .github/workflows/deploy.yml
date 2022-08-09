@@ -24,49 +24,7 @@ jobs:
           CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=doichan_aer_test AER_THRUST_BACKEND=CUDA CUSTATEVEC_ROOT=/opt/nvidia/cuquantum LD_LIBRARY_PATH=/opt/nvidia/cuquantum/lib CUDACXX=/usr/local/cuda/bin/nvcc AER_CUDA_ARCH="7.0 7.2 8.0 8.6 8.7"
         run: |
           python -m cibuildwheel --output-dir wheelhouse
-      - uses: actions/upload-artifact@v2
+      - name: Publish release artifacts to github release page
+        uses: softprops/action-gh-release@v1
         with:
-          path: ./wheelhouse/*.whl
-      - name: Check github.ref
-        run: |
-          echo ${{ github.ref }}
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: false
-          prerelease: false
-      - name: Get url to upload to release from output
-        env:
-          url: ${{ steps.create_release.outputs.upload_url }}
-        run: |
-          mkdir artifact
-          echo $url > artifact/url.txt
-      - name: Upload artifact to share url with other jobs
-        uses: actions/upload-artifact@v1
-        with:
-          name: artifact
-          path: artifact/url.txt
-      - name: Download artifact to get url to upload to release
-        uses: actions/download-artifact@v1
-        with:
-          name: artifact
-      - name: Get url to upload to release from artifact
-        id: get_url
-        run: |
-          url=$(cat artifact/url.txt)
-          echo "##[set-output name=upload_url;]$url"
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./wheelhouse/*.whl
-          asset_name: Qiskit Aer GPU with cuQuantum support
-          asset_content_type: application/whl
+           files: ./wheelhouse/*.whl
