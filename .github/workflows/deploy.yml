@@ -24,6 +24,9 @@ jobs:
           CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=doichan_aer_test AER_THRUST_BACKEND=CUDA CUSTATEVEC_ROOT=/opt/nvidia/cuquantum LD_LIBRARY_PATH=/opt/nvidia/cuquantum/lib CUDACXX=/usr/local/cuda/bin/nvcc AER_CUDA_ARCH="7.0 7.2 8.0 8.6 8.7"
         run: |
           python -m cibuildwheel --output-dir wheelhouse
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./wheelhouse/*.whl
       - name: Publish release artifacts to github release page
         uses: softprops/action-gh-release@v1
         with:
