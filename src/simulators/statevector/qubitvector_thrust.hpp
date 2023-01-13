@@ -32,7 +32,7 @@
 
 #include "framework/operations.hpp"
 
-#include "simulators/statevector/chunk/chunk_manager.hpp"
+#include "simulators/statevector/chunk/statevector_chunk_manager.hpp"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -469,11 +469,11 @@ protected:
   size_t num_qubits_;
   size_t data_size_;
 
-  mutable Chunk::Chunk<data_t> chunk_;
-  mutable Chunk::Chunk<data_t> buffer_chunk_;
-  mutable Chunk::Chunk<data_t> send_chunk_;
-  mutable Chunk::Chunk<data_t> recv_chunk_;
-  std::shared_ptr<Chunk::ChunkManager<data_t>> chunk_manager_ = nullptr;
+  mutable Chunk::Chunk<thrust::complex<data_t>> chunk_;
+  mutable Chunk::Chunk<thrust::complex<data_t>> buffer_chunk_;
+  mutable Chunk::Chunk<thrust::complex<data_t>> send_chunk_;
+  mutable Chunk::Chunk<thrust::complex<data_t>> recv_chunk_;
+  std::shared_ptr<Chunk::StatevectorChunkManager<data_t>> chunk_manager_ = nullptr;
 
   mutable thrust::host_vector<thrust::complex<data_t>> checkpoint_;
 
@@ -847,7 +847,7 @@ bool QubitVectorThrust<data_t>::chunk_setup(int chunk_bits,int num_qubits,uint_t
 
   //only first chunk call allocation function
   if(chunk_bits > 0 && num_qubits > 0){
-    chunk_manager_ = std::make_shared<Chunk::ChunkManager<data_t>>();
+    chunk_manager_ = std::make_shared<Chunk::StatevectorChunkManager<data_t>>();
     chunk_manager_->set_num_threads_per_group(num_threads_per_group_);
     chunk_manager_->Allocate(chunk_bits,num_qubits,num_local_chunks,chunk_index_,max_matrix_bits_, is_density_matrix(), cuStateVec_enable_);
   }
@@ -1623,7 +1623,7 @@ void QubitVectorThrust<data_t>::apply_chunk_swap(const reg_t &qubits, QubitVecto
   else{
     thrust::complex<data_t>* pChunk0;
     thrust::complex<data_t>* pChunk1;
-    Chunk::Chunk<data_t> bufferChunk;
+    Chunk::Chunk<thrust::complex<data_t>> bufferChunk;
 
     if(chunk_.device() >= 0){
       if(chunk_.container()->peer_access(src.chunk_.device())){
@@ -1705,7 +1705,7 @@ void QubitVectorThrust<data_t>::apply_chunk_swap(const reg_t &qubits, uint_t rem
   else{
     thrust::complex<data_t>* pLocal;
     thrust::complex<data_t>* pRemote;
-    Chunk::Chunk<data_t> buffer;
+    Chunk::Chunk<thrust::complex<data_t>> buffer;
 
 #ifdef AER_DISABLE_GDR
     if(chunk_.device() >= 0){    //if there is no GPUDirectRDMA support, copy chunk from CPU
@@ -2048,7 +2048,7 @@ std::vector<double> QubitVectorThrust<data_t>::probabilities(const reg_t &qubits
 #define QV_RESET_TARGET_PROB    3
 
 template <typename data_t>
-class reset_after_measure_func : public Chunk::GateFuncBase<data_t>
+class reset_after_measure_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int num_qubits_;
@@ -2100,7 +2100,7 @@ public:
 };
 
 template <typename data_t>
-class set_probability_buffer_for_reset_func : public Chunk::GateFuncBase<data_t>
+class set_probability_buffer_for_reset_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t reduce_buf_size_;
@@ -2141,7 +2141,7 @@ public:
 };
 
 template <typename data_t>
-class check_measure_probability_func : public Chunk::GateFuncBase<data_t>
+class check_measure_probability_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int num_qubits_;
@@ -2328,7 +2328,7 @@ void QubitVectorThrust<data_t>::apply_batched_measure(const reg_t& qubits,std::v
 }
 
 template <typename data_t>
-class reset_func : public Chunk::GateFuncBase<data_t>
+class reset_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int num_qubits_;
@@ -2492,7 +2492,7 @@ void QubitVectorThrust<data_t>::read_measured_data(ClassicalRegister& creg)
 }
 
 template <typename data_t>
-class set_creg_func : public Chunk::GateFuncBase<data_t>
+class set_creg_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t reg_set_;
@@ -2542,7 +2542,7 @@ void QubitVectorThrust<data_t>::store_cmemory(uint_t qubit,int val)
 }
 
 template <typename data_t>
-class set_batched_creg_func : public Chunk::GateFuncBase<data_t>
+class set_batched_creg_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int_t reg_set_;
@@ -2604,7 +2604,7 @@ int_t QubitVectorThrust<data_t>::set_batched_system_conditional(int_t src_reg, r
 }
 
 template <typename data_t>
-class copy_creg_func : public Chunk::GateFuncBase<data_t>
+class copy_creg_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t reg_dest_;
@@ -2727,7 +2727,7 @@ double QubitVectorThrust<data_t>::expval_pauli(const reg_t &qubits,
   //get pointer to pairing chunk (copy if needed)
   double ret;
   thrust::complex<data_t>* pair_ptr;
-  Chunk::Chunk<data_t> buffer;
+  Chunk::Chunk<thrust::complex<data_t>> buffer;
 
   if(pair_chunk.data() == this->data()){
 #ifdef AER_DISABLE_GDR
@@ -2824,7 +2824,7 @@ void QubitVectorThrust<data_t>::apply_pauli(const reg_t &qubits,
 
 //batched Pauli operation used for Pauli noise
 template <typename data_t>
-class batched_pauli_func : public Chunk::GateFuncBase<data_t>
+class batched_pauli_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<data_t> coeff_;
@@ -2962,7 +2962,7 @@ void QubitVectorThrust<data_t>::apply_batched_pauli_ops(const std::vector<std::v
 }
 
 template <typename data_t>
-class MatrixMult2x2_conditional : public Chunk::GateFuncBase<data_t>
+class MatrixMult2x2_conditional : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> m0,m1,m2,m3;
@@ -3013,13 +3013,13 @@ public:
 };
 
 template <typename data_t>
-class MatrixMultNxN_conditional : public Chunk::GateFuncWithCache<data_t>
+class MatrixMultNxN_conditional : public Chunk::GateFuncWithCache<thrust::complex<data_t>>
 {
 protected:
   uint_t prob_buf_size_;
   double* probs_;
 public:
-  MatrixMultNxN_conditional(uint_t nq,double* probs,uint_t prob_size) : Chunk::GateFuncWithCache<data_t>(nq)
+  MatrixMultNxN_conditional(uint_t nq,double* probs,uint_t prob_size) : Chunk::GateFuncWithCache<thrust::complex<data_t>>(nq)
   {
     probs_ = probs;
     prob_buf_size_ = prob_size;
@@ -3060,7 +3060,7 @@ public:
 };
 
 template <typename data_t>
-class check_kraus_probability_func : public Chunk::GateFuncBase<data_t>
+class check_kraus_probability_func : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t reduce_buf_size_;
@@ -3206,7 +3206,7 @@ void QubitVectorThrust<data_t>::apply_batched_kraus(const reg_t &qubits,
 }
 
 template <typename data_t>
-class bfunc_kernel : public Chunk::GateFuncBase<data_t>
+class bfunc_kernel : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t bfunc_num_regs_;
@@ -3332,7 +3332,7 @@ void QubitVectorThrust<data_t>::apply_bfunc(const Operations::Op &op)
 }
 
 template <typename data_t>
-class roerror_kernel : public Chunk::GateFuncBase<data_t>
+class roerror_kernel : public Chunk::GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t num_regs_;

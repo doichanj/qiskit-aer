@@ -31,7 +31,7 @@ template <typename data_t>
 class HostChunkContainer : public ChunkContainer<data_t>
 {
 protected:
-  AERHostVector<thrust::complex<data_t>>  data_;     //host vector for chunks + buffers
+  AERHostVector<data_t>  data_;     //host vector for chunks + buffers
   std::vector<thrust::complex<double>*> matrix_;     //pointer to matrix
   std::vector<uint_t*> params_;                      //pointer to additional parameters
 public:
@@ -43,12 +43,12 @@ public:
     return data_.size();
   }
 
-  AERHostVector<thrust::complex<data_t>>& vector(void)
+  AERHostVector<data_t>& vector(void)
   {
     return data_;
   }
 
-  thrust::complex<data_t>& operator[](uint_t i)
+  data_t& operator[](uint_t i)
   {
     return data_[i];
   }
@@ -71,22 +71,22 @@ public:
   }
   void ResizeMatrixBuffers(int bits){}
 
-  void Set(uint_t i,const thrust::complex<data_t>& t) override
+  void Set(uint_t i,const data_t& t) override
   {
     data_[i] = t;
   }
-  thrust::complex<data_t> Get(uint_t i) const override
+  data_t Get(uint_t i) const override
   {
     return data_[i];
   }
 
-  thrust::complex<data_t>* chunk_pointer(uint_t iChunk) const override
+  data_t* chunk_pointer(uint_t iChunk) const override
   {
-    return (thrust::complex<data_t>*)thrust::raw_pointer_cast(data_.data()) + (iChunk << this->chunk_bits_);
+    return (data_t*)thrust::raw_pointer_cast(data_.data()) + (iChunk << this->chunk_bits_);
   }
-  thrust::complex<data_t>* buffer_pointer(void) const
+  data_t* buffer_pointer(void) const
   {
-    return (thrust::complex<data_t>*)thrust::raw_pointer_cast(data_.data()) + (this->num_chunks_ << this->chunk_bits_);
+    return (data_t*)thrust::raw_pointer_cast(data_.data()) + (this->num_chunks_ << this->chunk_bits_);
   }
 
   thrust::complex<double>* matrix_pointer(uint_t iChunk) const override
@@ -111,14 +111,11 @@ public:
 
   void CopyIn(Chunk<data_t>& src,uint_t iChunk) override;
   void CopyOut(Chunk<data_t>& src,uint_t iChunk) override;
-  void CopyIn(thrust::complex<data_t>* src,uint_t iChunk, uint_t size) override;
-  void CopyOut(thrust::complex<data_t>* dest,uint_t iChunk, uint_t size) override;
+  void CopyIn(data_t* src,uint_t iChunk, uint_t size) override;
+  void CopyOut(data_t* dest,uint_t iChunk, uint_t size) override;
   void Swap(Chunk<data_t>& src,uint_t iChunk, uint_t dest_offset = 0, uint_t src_offset = 0, uint_t size = 0, bool write_back = true) override;
 
   void Zero(uint_t iChunk,uint_t count) override;
-
-  reg_t sample_measure(uint_t iChunk,const std::vector<double> &rnds, uint_t stride = 1, bool dot = true,uint_t count = 1) const override;
-
 };
 
 template <typename data_t>
@@ -202,7 +199,7 @@ void HostChunkContainer<data_t>::CopyOut(Chunk<data_t>& dest,uint_t iChunk)
 }
 
 template <typename data_t>
-void HostChunkContainer<data_t>::CopyIn(thrust::complex<data_t>* src,uint_t iChunk, uint_t size)
+void HostChunkContainer<data_t>::CopyIn(data_t* src,uint_t iChunk, uint_t size)
 {
   uint_t this_size = 1ull << this->chunk_bits_;
   if(this_size < size) throw std::runtime_error("CopyIn chunk size is less than provided size");
@@ -211,7 +208,7 @@ void HostChunkContainer<data_t>::CopyIn(thrust::complex<data_t>* src,uint_t iChu
 }
 
 template <typename data_t>
-void HostChunkContainer<data_t>::CopyOut(thrust::complex<data_t>* dest,uint_t iChunk, uint_t size)
+void HostChunkContainer<data_t>::CopyOut(data_t* dest,uint_t iChunk, uint_t size)
 {
   uint_t this_size = 1ull << this->chunk_bits_;
   if(this_size < size) throw std::runtime_error("CopyIn chunk size is less than provided size");
@@ -242,31 +239,6 @@ void HostChunkContainer<data_t>::Zero(uint_t iChunk,uint_t count)
 {
   thrust::fill_n(thrust::omp::par,data_.begin() + (iChunk << this->chunk_bits_),count,0.0);
 }
-
-template <typename data_t>
-reg_t HostChunkContainer<data_t>::sample_measure(uint_t iChunk,const std::vector<double> &rnds, uint_t stride, bool dot,uint_t count) const
-{
-  const int_t SHOTS = rnds.size();
-  reg_t samples(SHOTS,0);
-  thrust::host_vector<uint_t> vSmp(SHOTS);
-  int i;
-
-  strided_range<thrust::complex<data_t>*> iter(chunk_pointer(iChunk), chunk_pointer(iChunk+count), stride);
-
-  if(dot)
-    thrust::transform_inclusive_scan(thrust::omp::par,iter.begin(),iter.end(),iter.begin(),complex_dot_scan<data_t>(),thrust::plus<thrust::complex<data_t>>());
-  else
-    thrust::inclusive_scan(thrust::omp::par,iter.begin(),iter.end(),iter.begin(),thrust::plus<thrust::complex<data_t>>());
-  thrust::lower_bound(thrust::omp::par, iter.begin(), iter.end(), rnds.begin(), rnds.begin() + SHOTS, vSmp.begin() ,complex_less<data_t>());
-
-  for(i=0;i<SHOTS;i++){
-    samples[i] = vSmp[i];
-  }
-  vSmp.clear();
-
-  return samples;
-}
-
 
 //------------------------------------------------------------------------------
 } // end namespace Chunk

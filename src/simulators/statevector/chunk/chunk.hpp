@@ -155,31 +155,31 @@ public:
     return chunk_container_.lock()->matrix_bits();
   }
 
-  void Set(uint_t i,const thrust::complex<data_t>& t)
+  void Set(uint_t i,const data_t& t)
   {
     auto sel_chunk_container = chunk_container_.lock();
     sel_chunk_container->synchronize(chunk_pos_);
     sel_chunk_container->Set(i + (chunk_pos_ << sel_chunk_container->chunk_bits()),t);
   }
-  thrust::complex<data_t> Get(uint_t i) const
+  data_t Get(uint_t i) const
   {
     auto sel_chunk_container = chunk_container_.lock();
     sel_chunk_container->synchronize(chunk_pos_);
     return sel_chunk_container->Get(i + (chunk_pos_ << sel_chunk_container->chunk_bits()));
   }
 
-  thrust::complex<data_t>& operator[](uint_t i)
+  data_t& operator[](uint_t i)
   {
     auto sel_chunk_container = chunk_container_.lock();
     sel_chunk_container->synchronize(chunk_pos_);
     return (*sel_chunk_container)[i + (chunk_pos_ << sel_chunk_container->chunk_bits())];
   }
 
-  thrust::complex<data_t>* pointer(void)
+  data_t* pointer(void)
   {
     return chunk_container_.lock()->chunk_pointer(chunk_pos_);
   }
-  thrust::complex<data_t>* buffer_pointer(void)
+  data_t* buffer_pointer(void)
   {
     return chunk_container_.lock()->buffer_pointer();
   }
@@ -227,11 +227,11 @@ public:
   {
     chunk_container_.lock()->CopyOut(dest,chunk_pos_);
   }
-  void CopyIn(thrust::complex<data_t>* src, uint_t size)
+  void CopyIn(data_t* src, uint_t size)
   {
     chunk_container_.lock()->CopyIn(src, chunk_pos_, size);
   }
-  void CopyOut(thrust::complex<data_t>* dest, uint_t size)
+  void CopyOut(data_t* dest, uint_t size)
   {
     chunk_container_.lock()->CopyOut(dest, chunk_pos_, size);
   }

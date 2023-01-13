@@ -54,7 +54,7 @@ template <typename data_t>
 class GateFuncBase
 {
 protected:
-  thrust::complex<data_t>* data_;   //pointer to state vector buffer
+  data_t* data_;   //pointer to state vector buffer
   thrust::complex<double>* matrix_; //storage for matrix on device
   uint_t* params_;                  //storage for additional parameters on device
   uint_t base_index_;               //start index of state vector 
@@ -77,7 +77,7 @@ public:
     index_offset_ = 0;
 #endif
   }
-  virtual void set_data(thrust::complex<data_t>* p)
+  virtual void set_data(data_t* p)
   {
     data_ = p;
   }
@@ -115,7 +115,7 @@ public:
   }
 #endif
 
-  __host__ __device__ thrust::complex<data_t>* data(void)
+  __host__ __device__ data_t* data(void)
   {
     return data_;
   }
@@ -165,11 +165,11 @@ public:
   {
     return _tid;
   }
-  virtual __host__ __device__ void run_with_cache(uint_t _tid,uint_t _idx,thrust::complex<data_t>* _cache) const
+  virtual __host__ __device__ void run_with_cache(uint_t _tid,uint_t _idx,data_t* _cache) const
   {
     //implemente this in the kernel class
   }
-  virtual __host__ __device__ double run_with_cache_sum(uint_t _tid,uint_t _idx,thrust::complex<data_t>* _cache) const
+  virtual __host__ __device__ double run_with_cache_sum(uint_t _tid,uint_t _idx,data_t* _cache) const
   {
     //implemente this in the kernel class
     return 0.0;
@@ -244,7 +244,7 @@ public:
     if(!this->check_conditional(i))
       return;
 
-    thrust::complex<data_t> cache[1024];
+    data_t cache[1024];
     uint_t j,idx;
     uint_t matSize = 1ull << nqubits_;
 
@@ -313,7 +313,7 @@ public:
     if(!this->check_conditional(i))
       return 0.0;
 
-    thrust::complex<data_t> cache[1024];
+    data_t cache[1024];
     uint_t j,idx;
     uint_t matSize = 1ull << nqubits_;
     double sum = 0.0;
@@ -438,7 +438,7 @@ public:
 // State initialize component
 //------------------------------------------------------------------------------
 template <typename data_t>
-class initialize_component_1qubit_func : public GateFuncBase<data_t>
+class initialize_component_1qubit_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> s0,s1;
@@ -481,7 +481,7 @@ public:
 };
 
 template <typename data_t>
-class initialize_component_func : public GateFuncBase<data_t>
+class initialize_component_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int nqubits;
@@ -545,7 +545,7 @@ public:
 };
 
 template <typename data_t>
-class initialize_large_component_func : public GateFuncBase<data_t>
+class initialize_large_component_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int num_qubits_;
@@ -593,7 +593,7 @@ public:
 // Zero clear
 //------------------------------------------------------------------------------
 template <typename data_t>
-class ZeroClear : public GateFuncBase<data_t>
+class ZeroClear : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
 public:
@@ -619,7 +619,7 @@ public:
 // Initialize state
 //------------------------------------------------------------------------------
 template <typename data_t>
-class initialize_kernel : public GateFuncBase<data_t>
+class initialize_kernel : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int num_qubits_state_;
@@ -662,7 +662,7 @@ public:
 // Matrix multiplication
 //------------------------------------------------------------------------------
 template <typename data_t>
-class MatrixMult2x2 : public GateFuncBase<data_t>
+class MatrixMult2x2 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> m0,m1,m2,m3;
@@ -712,7 +712,7 @@ public:
 
 
 template <typename data_t>
-class MatrixMult4x4 : public GateFuncBase<data_t>
+class MatrixMult4x4 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> m00,m10,m20,m30;
@@ -802,7 +802,7 @@ public:
 };
 
 template <typename data_t>
-class MatrixMult8x8 : public GateFuncBase<data_t>
+class MatrixMult8x8 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t offset0;
@@ -953,7 +953,7 @@ public:
 };
 
 template <typename data_t>
-class MatrixMult16x16 : public GateFuncBase<data_t>
+class MatrixMult16x16 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t offset0;
@@ -1061,11 +1061,11 @@ public:
 };
 
 template <typename data_t>
-class MatrixMultNxN : public GateFuncWithCache<data_t>
+class MatrixMultNxN : public GateFuncWithCache<thrust::complex<data_t>>
 {
 protected:
 public:
-  MatrixMultNxN(uint_t nq) : GateFuncWithCache<data_t>(nq)
+  MatrixMultNxN(uint_t nq) : GateFuncWithCache<thrust::complex<data_t>>(nq)
   {
     ;
   }
@@ -1105,7 +1105,7 @@ public:
 
 //in-place NxN matrix multiplication using LU factorization
 template <typename data_t>
-class MatrixMultNxN_LU : public GateFuncBase<data_t>
+class MatrixMultNxN_LU : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int nqubits;
@@ -1322,7 +1322,7 @@ public:
 };
 
 template <typename data_t>
-class MatrixMult2x2Controlled : public GateFuncBase<data_t> 
+class MatrixMult2x2Controlled : public GateFuncBase<thrust::complex<data_t>> 
 {
 protected:
   thrust::complex<double> m0,m1,m2,m3;
@@ -1390,7 +1390,7 @@ public:
 // Diagonal matrix multiplication
 //------------------------------------------------------------------------------
 template <typename data_t>
-class DiagonalMult2x2 : public GateFuncBase<data_t>
+class DiagonalMult2x2 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> m0,m1;
@@ -1436,7 +1436,7 @@ public:
 };
 
 template <typename data_t>
-class DiagonalMult4x4 : public GateFuncBase<data_t>
+class DiagonalMult4x4 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> m0,m1,m2,m3;
@@ -1500,7 +1500,7 @@ public:
 };
 
 template <typename data_t>
-class DiagonalMultNxN : public GateFuncBase<data_t>
+class DiagonalMultNxN : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int nqubits;
@@ -1554,7 +1554,7 @@ public:
 };
 
 template <typename data_t>
-class DiagonalMult2x2Controlled : public GateFuncBase<data_t> 
+class DiagonalMult2x2Controlled : public GateFuncBase<thrust::complex<data_t>> 
 {
 protected:
   thrust::complex<double> m0,m1;
@@ -1623,7 +1623,7 @@ public:
 // Permutation
 //------------------------------------------------------------------------------
 template <typename data_t>
-class Permutation : public GateFuncBase<data_t>
+class Permutation : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t nqubits;
@@ -1705,7 +1705,7 @@ public:
 // X gate
 //------------------------------------------------------------------------------
 template <typename data_t>
-class CX_func : public GateFuncBase<data_t>
+class CX_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t offset;
@@ -1771,7 +1771,7 @@ public:
 // Y gate
 //------------------------------------------------------------------------------
 template <typename data_t>
-class CY_func : public GateFuncBase<data_t>
+class CY_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t mask;
@@ -1837,7 +1837,7 @@ public:
 // Swap gate
 //------------------------------------------------------------------------------
 template <typename data_t>
-class CSwap_func : public GateFuncBase<data_t>
+class CSwap_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t mask0;
@@ -1917,13 +1917,13 @@ public:
 };
 
 template <typename data_t>
-class MultiSwap_func : public GateFuncWithCache<data_t>
+class MultiSwap_func : public GateFuncWithCache<thrust::complex<data_t>>
 {
 protected:
   
 public:
 
-  MultiSwap_func(uint_t nq) : GateFuncWithCache<data_t>(nq)
+  MultiSwap_func(uint_t nq) : GateFuncWithCache<thrust::complex<data_t>>(nq)
   {
   }
 
@@ -1950,7 +1950,7 @@ public:
 
 //swap operator between chunks
 template <typename data_t>
-class CSwapChunk_func : public GateFuncBase<data_t>
+class CSwapChunk_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t mask;
@@ -2022,13 +2022,13 @@ class BufferSwap_func : public GateFuncBase<data_t>
 {
 protected:
   uint_t mask;
-  thrust::complex<data_t>* vec0_;
-  thrust::complex<data_t>* vec1_;
+  data_t* vec0_;
+  data_t* vec1_;
   uint_t size_;
   bool write_back_;
 public:
 
-  BufferSwap_func(thrust::complex<data_t>* pVec0,thrust::complex<data_t>* pVec1,uint_t size,bool wb)
+  BufferSwap_func(data_t* pVec0,data_t* pVec1,uint_t size,bool wb)
   {
     vec0_ = pVec0;
     vec1_ = pVec1;
@@ -2043,7 +2043,7 @@ public:
 
   __host__ __device__  void operator()(const uint_t &i) const
   {
-    thrust::complex<data_t> q0,q1;
+    data_t q0,q1;
 
     if(i < size_){
       q1 = vec1_[i];
@@ -2065,7 +2065,7 @@ public:
 // Phase gate
 //------------------------------------------------------------------------------
 template <typename data_t>
-class phase_func : public GateFuncBase<data_t> 
+class phase_func : public GateFuncBase<thrust::complex<data_t>> 
 {
 protected:
   thrust::complex<double> phase;
@@ -2112,7 +2112,7 @@ public:
 // Norm functions
 //------------------------------------------------------------------------------
 template <typename data_t>
-class norm_func : public GateFuncBase<data_t>
+class norm_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
 public:
@@ -2144,7 +2144,7 @@ public:
 };
 
 template <typename data_t>
-class trace_func : public GateFuncBase<data_t>
+class trace_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t rows_;
@@ -2184,11 +2184,11 @@ public:
 };
 
 template <typename data_t>
-class NormMatrixMultNxN : public GateFuncSumWithCache<data_t>
+class NormMatrixMultNxN : public GateFuncSumWithCache<thrust::complex<data_t>>
 {
 protected:
 public:
-  NormMatrixMultNxN(uint_t nq) : GateFuncSumWithCache<data_t>(nq)
+  NormMatrixMultNxN(uint_t nq) : GateFuncSumWithCache<thrust::complex<data_t>>(nq)
   {
     ;
   }
@@ -2227,7 +2227,7 @@ public:
 };
 
 template <typename data_t>
-class NormDiagonalMultNxN : public GateFuncBase<data_t>
+class NormDiagonalMultNxN : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   int nqubits;
@@ -2280,7 +2280,7 @@ public:
 };
 
 template <typename data_t>
-class NormMatrixMult2x2 : public GateFuncBase<data_t>
+class NormMatrixMult2x2 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> m0,m1,m2,m3;
@@ -2330,7 +2330,7 @@ public:
 };
 
 template <typename data_t>
-class NormDiagonalMult2x2 : public GateFuncBase<data_t>
+class NormDiagonalMult2x2 : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   thrust::complex<double> m0,m1;
@@ -2380,7 +2380,7 @@ public:
 // Probabilities
 //------------------------------------------------------------------------------
 template <typename data_t>
-class probability_func : public GateFuncBase<data_t>
+class probability_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t mask;
@@ -2431,7 +2431,7 @@ public:
 };
 
 template <typename data_t>
-class probability_1qubit_func : public GateFuncBase<data_t>
+class probability_1qubit_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t offset;
@@ -2490,7 +2490,7 @@ inline __host__ __device__ uint_t pop_count_kernel(uint_t val)
 
 //special case Z only
 template <typename data_t>
-class expval_pauli_Z_func : public GateFuncBase<data_t>
+class expval_pauli_Z_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t z_mask_;
@@ -2535,7 +2535,7 @@ public:
 };
 
 template <typename data_t>
-class expval_pauli_XYZ_func : public GateFuncBase<data_t>
+class expval_pauli_XYZ_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t x_mask_;
@@ -2603,7 +2603,7 @@ public:
 };
 
 template <typename data_t>
-class expval_pauli_inter_chunk_func : public GateFuncBase<data_t>
+class expval_pauli_inter_chunk_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t x_mask_;
@@ -2674,7 +2674,7 @@ public:
 // Pauli application
 //------------------------------------------------------------------------------
 template <typename data_t>
-class multi_pauli_func : public GateFuncBase<data_t>
+class multi_pauli_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t x_mask_;
@@ -2727,7 +2727,7 @@ public:
 
 //special case Z only
 template <typename data_t>
-class multi_pauli_Z_func : public GateFuncBase<data_t>
+class multi_pauli_Z_func : public GateFuncBase<thrust::complex<data_t>>
 {
 protected:
   uint_t z_mask_;

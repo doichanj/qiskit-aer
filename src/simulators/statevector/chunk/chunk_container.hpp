@@ -206,13 +206,13 @@ public:
     omp_threads_ = nthreads;
   }
 
-  virtual thrust::complex<data_t>& operator[](uint_t i) = 0;
+  virtual data_t& operator[](uint_t i) = 0;
 
   virtual uint_t Allocate(int idev,int chunk_bits,int num_qubits,uint_t chunks,uint_t buffers = AER_MAX_BUFFERS,bool multi_shots = false,int matrix_bit = AER_DEFAULT_MATRIX_BITS, bool density_matrix = false) = 0;
   virtual void Deallocate(void) = 0;
 
-  virtual void Set(uint_t i,const thrust::complex<data_t>& t) = 0;
-  virtual thrust::complex<data_t> Get(uint_t i) const = 0;
+  virtual void Set(uint_t i,const data_t& t) = 0;
+  virtual data_t Get(uint_t i) const = 0;
 
   virtual void StoreMatrix(const std::vector<std::complex<double>>& mat,uint_t iChunk) = 0;
   virtual void StoreMatrix(const std::complex<double>* mat,uint_t iChunk,uint_t size) = 0;
@@ -221,8 +221,8 @@ public:
 
   virtual void CopyIn(Chunk<data_t>& src,uint_t iChunk) = 0;
   virtual void CopyOut(Chunk<data_t>& dest,uint_t iChunk) = 0;
-  virtual void CopyIn(thrust::complex<data_t>* src,uint_t iChunk, uint_t size) = 0;
-  virtual void CopyOut(thrust::complex<data_t>* dest,uint_t iChunk, uint_t size) = 0;
+  virtual void CopyIn(data_t* src,uint_t iChunk, uint_t size) = 0;
+  virtual void CopyOut(data_t* dest,uint_t iChunk, uint_t size) = 0;
   virtual void Swap(Chunk<data_t>& src,uint_t iChunk, uint_t dest_offset = 0, uint_t src_offset = 0, uint_t size = 0, bool write_back = true) = 0;
 
   virtual void Zero(uint_t iChunk,uint_t count) = 0;
@@ -236,14 +236,9 @@ public:
   template <typename Function>
   void ExecuteSum2(double* pSum,Function func,uint_t iChunk,uint_t count) const;
 
-  virtual reg_t sample_measure(uint_t iChunk,const std::vector<double> &rnds, uint_t stride = 1, bool dot = true,uint_t count = 1) const = 0;
-  virtual double norm(uint_t iChunk,uint_t count) const;
-  virtual double trace(uint_t iChunk,uint_t row,uint_t count) const;
-
-
   size_t size_of_complex(void)
   {
-    return sizeof(thrust::complex<data_t>);
+    return sizeof(data_t);
   }
 
   bool MapChunk(Chunk<data_t>& chunk);
@@ -252,11 +247,11 @@ public:
   void UnmapBuffer(Chunk<data_t>& chunk);
   void unmap_all(void);
 
-  virtual thrust::complex<data_t>* chunk_pointer(uint_t iChunk) const
+  virtual data_t* chunk_pointer(uint_t iChunk) const
   {
     return NULL;
   }
-  virtual thrust::complex<data_t>* buffer_pointer(void) const
+  virtual data_t* buffer_pointer(void) const
   {
     return NULL;
   }
@@ -325,38 +320,51 @@ public:
   }
   virtual void request_creg_update(void){}
 
+  virtual reg_t sample_measure(uint_t iChunk,const std::vector<double> &rnds, uint_t stride = 1, bool dot = true,uint_t count = 1) const
+  {
+    return reg_t();
+  }
+  virtual double norm(uint_t iChunk,uint_t count) const
+  {
+    return 0.0;
+  }
+  virtual double trace(uint_t iChunk,uint_t row,uint_t count) const
+  {
+    return 0.0;
+  }
+
   //apply matrix 
-  virtual void apply_matrix(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const cvector_t<double> &mat,const uint_t gid, const uint_t count);
+  virtual void apply_matrix(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const cvector_t<double> &mat,const uint_t gid, const uint_t count){}
 
   //apply diagonal matrix
-  virtual void apply_diagonal_matrix(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const cvector_t<double> &diag,const uint_t gid, const uint_t count);
+  virtual void apply_diagonal_matrix(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const cvector_t<double> &diag,const uint_t gid, const uint_t count){}
 
   //apply (controlled) X
-  virtual void apply_X(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count);
+  virtual void apply_X(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count){}
 
   //apply (controlled) Y
-  virtual void apply_Y(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count);
+  virtual void apply_Y(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count){}
 
   //apply (controlled) phase
-  virtual void apply_phase(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const std::complex<double> phase,const uint_t gid, const uint_t count);
+  virtual void apply_phase(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const std::complex<double> phase,const uint_t gid, const uint_t count){}
 
   //apply (controlled) swap gate
-  virtual void apply_swap(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const uint_t gid, const uint_t count);
+  virtual void apply_swap(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const uint_t gid, const uint_t count){}
 
   //apply multiple swap gates
-  virtual void apply_multi_swaps(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count);
+  virtual void apply_multi_swaps(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count){}
 
   //apply permutation
-  virtual void apply_permutation(const uint_t iChunk,const reg_t& qubits,const std::vector<std::pair<uint_t, uint_t>> &pairs, const uint_t gid, const uint_t count);
+  virtual void apply_permutation(const uint_t iChunk,const reg_t& qubits,const std::vector<std::pair<uint_t, uint_t>> &pairs, const uint_t gid, const uint_t count){}
 
   //apply rotation around axis
-  virtual void apply_rotation(const uint_t iChunk,const reg_t &qubits, const Rotation r, const double theta, const uint_t gid, const uint_t count);
+  virtual void apply_rotation(const uint_t iChunk,const reg_t &qubits, const Rotation r, const double theta, const uint_t gid, const uint_t count){}
 
   //get probabilities of chunk
-  virtual void probabilities(std::vector<double>& probs, const uint_t iChunk, const reg_t& qubits) const;
+  virtual void probabilities(std::vector<double>& probs, const uint_t iChunk, const reg_t& qubits) const {}
 
   //Pauli expectation values
-  virtual double expval_pauli(const uint_t iChunk,const reg_t& qubits,const std::string &pauli,const complex_t initial_phase) const;
+  virtual double expval_pauli(const uint_t iChunk,const reg_t& qubits,const std::string &pauli,const complex_t initial_phase) const { return 0;}
 
 protected:
   int convert_blocked_qubit(int qubit)
@@ -834,233 +842,6 @@ void ChunkContainer<data_t>::deallocate_chunks(void)
   reduced_queue_begin_.clear();
   reduced_queue_end_.clear();
 }
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_matrix(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const cvector_t<double> &mat,const uint_t gid, const uint_t count)
-{
-  const size_t N = qubits.size() - control_bits;
-
-  if(N == 1){
-    if(control_bits == 0)
-      Execute(MatrixMult2x2<data_t>(mat,qubits[0]), iChunk, gid, count);
-    else  //2x2 matrix with control bits
-      Execute(MatrixMult2x2Controlled<data_t>(mat,qubits), iChunk, gid, count);
-  }
-  else if(N == 2){
-    Execute(MatrixMult4x4<data_t>(mat,qubits[0],qubits[1]), iChunk, gid, count);
-  }
-  else{
-    auto qubits_sorted = qubits;
-    std::sort(qubits_sorted.begin(), qubits_sorted.end());
-#ifndef AER_THRUST_CUDA
-    if(N == 3){
-      StoreMatrix(mat, iChunk);
-      Execute(MatrixMult8x8<data_t>(qubits,qubits_sorted), iChunk, gid, count);
-    }
-    else if(N == 4){
-      StoreMatrix(mat, iChunk);
-      Execute(MatrixMult16x16<data_t>(qubits,qubits_sorted), iChunk, gid, count);
-    }
-    else if(N <= 10){
-#else
-    if(N <= 10){
-#endif
-      int i;
-      for(i=0;i<N;i++){
-        qubits_sorted.push_back(qubits[i]);
-      }
-      StoreMatrix(mat, iChunk);
-      StoreUintParams(qubits_sorted, iChunk);
-
-      Execute(MatrixMultNxN<data_t>(N), iChunk, gid, count);
-    }
-    else{
-      cvector_t<double> matLU;
-      reg_t params;
-      MatrixMultNxN_LU<data_t> f(mat,qubits_sorted,matLU,params);
-
-      StoreMatrix(matLU, iChunk);
-      StoreUintParams(params, iChunk);
-
-      Execute(f, iChunk, gid, count);
-    }
-  }
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_diagonal_matrix(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const cvector_t<double> &diag,const uint_t gid, const uint_t count)
-{
-  const size_t N = qubits.size() - control_bits;
-
-  if(N == 1){
-    if(control_bits == 0)
-      Execute(DiagonalMult2x2<data_t>(diag,qubits[0]), iChunk, gid, count);
-    else
-      Execute(DiagonalMult2x2Controlled<data_t>(diag,qubits), iChunk, gid, count);
-  }
-  else if(N == 2){
-    Execute(DiagonalMult4x4<data_t>(diag,qubits[0],qubits[1]), iChunk, gid, count);
-  }
-  else{
-    StoreMatrix(diag, iChunk);
-    StoreUintParams(qubits, iChunk);
-
-    Execute(DiagonalMultNxN<data_t>(qubits), iChunk, gid, count);
-  }
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_X(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count)
-{
-  Execute(CX_func<data_t>(qubits), iChunk, gid, count);
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_Y(const uint_t iChunk,const reg_t& qubits,const uint_t gid, const uint_t count)
-{
-  Execute(CY_func<data_t>(qubits), iChunk, gid, count);
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_phase(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const std::complex<double> phase,const uint_t gid, const uint_t count)
-{
-  Execute(phase_func<data_t>(qubits,*(thrust::complex<double>*)&phase), iChunk, gid, count );
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_swap(const uint_t iChunk,const reg_t& qubits,const int_t control_bits,const uint_t gid, const uint_t count)
-{
-  Execute(CSwap_func<data_t>(qubits), iChunk, gid, count);
-}
-
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_multi_swaps(const uint_t iChunk,const reg_t& qubits,const uint_t gid,const uint_t count)
-{
-  //max 5 swaps can be applied at once using GPU's shared memory
-  for(int_t i=0;i<qubits.size();i+=10){
-    int_t n = 10;
-    if(i + n > qubits.size())
-      n = qubits.size() - i;
-
-    reg_t qubits_swap(qubits.begin() + i,qubits.begin() + i + n);
-    std::sort(qubits_swap.begin(), qubits_swap.end());
-    qubits_swap.insert(qubits_swap.end(), qubits.begin() + i,qubits.begin() + i + n);
-
-    StoreUintParams(qubits_swap, iChunk);
-    Execute(MultiSwap_func<data_t>(n), iChunk, gid, count);
-  }
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_permutation(const uint_t iChunk,const reg_t& qubits,const std::vector<std::pair<uint_t, uint_t>> &pairs, const uint_t gid, const uint_t count)
-{
-  const size_t N = qubits.size();
-  auto qubits_sorted = qubits;
-  std::sort(qubits_sorted.begin(), qubits_sorted.end());
-
-  reg_t params;
-  Permutation<data_t> f(qubits_sorted,qubits,pairs,params);
-
-  StoreUintParams(params, iChunk);
-
-  Execute(f, iChunk, gid, count);
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::apply_rotation(const uint_t iChunk,const reg_t &qubits, const Rotation r, const double theta, const uint_t gid, const uint_t count)
-{
-  int control_bits = qubits.size() - 1;
-  switch(r){
-    case Rotation::x:
-      apply_matrix(iChunk, qubits, control_bits, Linalg::VMatrix::rx(theta), gid, count);
-      break;
-    case Rotation::y:
-      apply_matrix(iChunk, qubits, control_bits, Linalg::VMatrix::ry(theta), gid, count);
-      break;
-    case Rotation::z:
-      apply_diagonal_matrix(iChunk, qubits, control_bits, Linalg::VMatrix::rz_diag(theta), gid, count);
-      break;
-    case Rotation::xx:
-      apply_matrix(iChunk, qubits, control_bits-1, Linalg::VMatrix::rxx(theta), gid, count);
-      break;
-    case Rotation::yy:
-      apply_matrix(iChunk, qubits, control_bits-1, Linalg::VMatrix::ryy(theta), gid, count);
-      break;
-    case Rotation::zz:
-      apply_diagonal_matrix(iChunk, qubits, control_bits-1, Linalg::VMatrix::rzz_diag(theta), gid, count);
-      break;
-    case Rotation::zx:
-      apply_matrix(iChunk, qubits, control_bits-1, Linalg::VMatrix::rzx(theta), gid, count);
-      break;
-    default:
-      throw std::invalid_argument(
-          "QubitVectorThrust::invalid rotation axis.");
-  }
-}
-
-template <typename data_t>
-void ChunkContainer<data_t>::probabilities(std::vector<double>& probs, const uint_t iChunk, const reg_t& qubits) const
-{
-  const size_t N = qubits.size();
-  const int_t DIM = 1 << N;
-  probs.resize(DIM);
-
-  if(N == 1){ //special case for 1 qubit (optimized for measure)
-    ExecuteSum2(&probs[0],probability_1qubit_func<data_t>(qubits[0]), iChunk, 1);
-  }
-  else{
-    for(int_t i=0;i<DIM;i++){
-      ExecuteSum(&probs[i],probability_func<data_t>(qubits,i), iChunk, 1);
-    }
-  }
-}
-
-template <typename data_t>
-double ChunkContainer<data_t>::norm(uint_t iChunk,uint_t count) const
-{
-  double ret;
-  ExecuteSum(&ret,norm_func<data_t>(), iChunk, count);
-
-  return ret;
-}
-
-template <typename data_t>
-double ChunkContainer<data_t>::trace(uint_t iChunk,uint_t row,uint_t count) const
-{
-  double ret;
-  ExecuteSum(&ret,trace_func<data_t>(row), iChunk, count);
-
-  return ret;
-}
-
-template <typename data_t>
-double ChunkContainer<data_t>::expval_pauli(const uint_t iChunk,const reg_t& qubits,const std::string &pauli,const complex_t initial_phase) const
-{
-  uint_t x_mask, z_mask, num_y, x_max;
-  std::tie(x_mask, z_mask, num_y, x_max) = pauli_masks_and_phase(qubits, pauli);
-
-  // Special case for only I Paulis
-  if (x_mask + z_mask == 0) {
-    thrust::complex<double> ret = norm(iChunk, 1);
-    return ret.real() + ret.imag();
-  }
-  double ret;
-  // specialize x_max == 0
-  if(x_mask == 0) {
-    ExecuteSum(&ret, expval_pauli_Z_func<data_t>(z_mask), iChunk,  1 );
-    return ret;
-  }
-
-  // Compute the overall phase of the operator.
-  // This is (-1j) ** number of Y terms modulo 4
-  auto phase = std::complex<data_t>(initial_phase);
-  add_y_phase(num_y, phase);
-  ExecuteSum(&ret, expval_pauli_XYZ_func<data_t>(x_mask, z_mask, x_max, phase), iChunk, 1 );
-  return ret;
-}
-
-
 
 
 //------------------------------------------------------------------------------

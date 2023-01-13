@@ -36,7 +36,7 @@ void dev_apply_function(kernel_t func, uint_t count)
 template <typename data_t,typename kernel_t> __global__
 void dev_apply_function_with_cache(kernel_t func, uint_t count)
 {
-  __shared__ thrust::complex<data_t> cache[1024];
+  __shared__ data_t cache[1024];
   uint_t i,idx;
 
   i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -105,7 +105,7 @@ void dev_apply_function_sum(double* pReduceBuffer, kernel_t func,uint_t buf_size
 template <typename data_t,typename kernel_t> __global__
 void dev_apply_function_sum_with_cache(double* pReduceBuffer, kernel_t func,uint_t buf_size, uint_t count)
 {
-  __shared__ thrust::complex<data_t> cache[1024];
+  __shared__ data_t cache[1024];
   uint_t i,idx;
   uint_t j,iChunk,nw;
   double sum;

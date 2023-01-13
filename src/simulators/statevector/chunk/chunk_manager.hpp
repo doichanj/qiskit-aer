@@ -74,6 +74,14 @@ public:
     return chunks_.size();
   }
 
+  virtual std::shared_ptr<ChunkContainer<data_t>> new_container(bool onGPU = false)
+  {
+    if(onGPU)
+      return std::make_shared<DeviceChunkContainer<data_t>>();
+    else
+      return std::make_shared<HostChunkContainer<data_t>>();
+  }
+
   uint_t Allocate(int chunk_bits,int nqubits,uint_t nchunks,uint_t chunk_index,int matrix_bit,bool density_mat,bool enable_cuStatevec);
   void Free(void);
 
@@ -271,7 +279,7 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks,
         size_t freeMem,totalMem;
         cudaSetDevice(0);
         cudaMemGetInfo(&freeMem,&totalMem);
-        if(freeMem > ( ((uint_t)sizeof(thrust::complex<data_t>) * (nchunks + num_buffers + AER_DUMMY_BUFFERS)) << chunk_bits_)){
+        if(freeMem > ( ((uint_t)sizeof(data_t) * (nchunks + num_buffers + AER_DUMMY_BUFFERS)) << chunk_bits_)){
           num_places_ = 1;
         }
       }
@@ -294,7 +302,7 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks,
       }
       else{
 #endif
-        chunks_.push_back(std::make_shared<DeviceChunkContainer<data_t>>());
+        chunks_.push_back(new_container(true));
 #ifdef AER_CUSTATEVEC
       }
 #endif
@@ -327,7 +335,7 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks,
         ie = (num_chunks_ - chunks_allocated) * (uint_t)(iDev + 1) / (uint_t)nplaces_add;
         nc = ie - is;
         if(nc > 0){
-          chunks_.push_back(std::make_shared<HostChunkContainer<data_t>>());
+          chunks_.push_back(new_container(false));
           chunks_[chunks_.size()-1]->set_chunk_index(chunk_index_ + chunks_allocated + is);  //set first chunk index for the container
           chunks_[chunks_.size()-1]->Allocate(-1,chunk_bits,nqubits,nc,num_buffers,multi_shots_,matrix_bit,density_matrix_);
         }
@@ -341,7 +349,7 @@ uint_t ChunkManager<data_t>::Allocate(int chunk_bits,int nqubits,uint_t nchunks,
 #ifdef AER_DISABLE_GDR
     //additional host buffer
     iplace_host_ = chunks_.size();
-    chunks_.push_back(std::make_shared<HostChunkContainer<data_t>>());
+    chunks_.push_back(new_container(false));
     chunks_[iplace_host_]->Allocate(-1,chunk_bits,nqubits,0,AER_MAX_BUFFERS,multi_shots_,matrix_bit,density_matrix_);
 #endif
   }
