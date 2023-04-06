@@ -793,11 +793,15 @@ void Controller::run_circuit(Circuit &circ, const Noise::NoiseModel &noise,
     }
     break;
   case Method::stabilizer:
-    // Stabilizer simulation
-    // TODO: Stabilizer doesn't yet support custom state initialization
-    {
-      CircuitExecutor::Executor<Stabilizer::State> executor;
+    if (sim_device_ == Device::CPU) {
+      CircuitExecutor::Executor<Stabilizer::State<Clifford::Clifford>> executor;
       executor.run_circuit(circ, noise, config, method, sim_device_, result);
+    }
+    else{
+#ifdef AER_THRUST_SUPPORTED
+      CircuitExecutor::Executor<Stabilizer::State<Clifford::CliffordThrust>> executor;
+      executor.run_circuit(circ, noise, config, method, sim_device_, result);
+#endif
     }
     break;
   case Method::extended_stabilizer: {
@@ -871,7 +875,7 @@ size_t Controller::required_memory_mb(const Circuit &circ,
     }
   }
   case Method::stabilizer: {
-    Stabilizer::State state;
+    Stabilizer::State<Clifford::Clifford> state;
     return state.required_memory_mb(circ.num_qubits, circ.ops);
   }
   case Method::extended_stabilizer: {
@@ -1000,7 +1004,7 @@ bool Controller::validate_method(Method method, const Circuit &circ,
   // Switch wrapper for templated function validate_state
   switch (method) {
   case Method::stabilizer:
-    return validate_state(Stabilizer::State(), circ, noise_model, throw_except);
+    return validate_state(Stabilizer::State<>(), circ, noise_model, throw_except);
   case Method::extended_stabilizer:
     return validate_state(ExtendedStabilizer::State(), circ, noise_model,
                           throw_except);

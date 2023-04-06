@@ -722,7 +722,7 @@ void AerState::initialize_qreg_state(
                                  "device: method=matrix_product_state");
     } else if (method_ == Method::stabilizer) {
       if (device_ == Device::CPU)
-        state_ = std::make_shared<Stabilizer::State>();
+        state_ = std::make_shared<Stabilizer::State<Clifford::Clifford>>();
       else // if (device_ == Device::GPU)
         throw std::runtime_error("specified method does not support non-CPU "
                                  "device: method=stabilizer");

@@ -12,14 +12,15 @@
  * that they have been altered from the originals.
  */
 
+
 #ifndef _binary_vector_hpp_
 #define _binary_vector_hpp_
 
 #include <cmath>
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 namespace AER {
 namespace BV {
@@ -36,11 +37,10 @@ public:
   const static size_t BLOCK_BITS = 6;
   const static size_t BLOCK_MASK = (1ull << BLOCK_BITS) - 1;
 
-  BinaryVector() : m_length(0){};
+  BinaryVector() : m_length(0) {};
 
   explicit BinaryVector(uint64_t length)
-      : m_length(length),
-        m_data((length + BLOCK_SIZE - 1) >> BLOCK_BITS, ZERO_){};
+      : m_length(length), m_data((length + BLOCK_SIZE - 1) >> BLOCK_BITS, ZERO_){};
 
   BinaryVector(std::vector<uint64_t> mdata)
       : m_length(mdata.size() << BLOCK_BITS), m_data(mdata){};
@@ -65,9 +65,7 @@ public:
 
   uint64_t getLength() const { return m_length; };
 
-  void makeZero() {
-    m_data.assign((m_length + BLOCK_SIZE - 1) >> BLOCK_BITS, ZERO_);
-  }
+  void makeZero() { m_data.assign((m_length + BLOCK_SIZE - 1) >> BLOCK_BITS, ZERO_); }
 
   bool isZero() const;
 
@@ -75,12 +73,27 @@ public:
   bool isSame(const BinaryVector &rhs, bool pad) const;
 
   std::vector<uint64_t> nonzeroIndices() const;
-  const std::vector<uint64_t> &getData() const { return m_data; }
+  const std::vector<uint64_t>& getData() const
+  {
+    return m_data;
+  }
 
-  size_t blockSize(void) { return BLOCK_SIZE; }
-  size_t blockLength(void) const { return m_data.size(); }
-  uint64_t &operator()(const uint64_t pos) { return m_data[pos]; }
-  uint64_t operator()(const uint64_t pos) const { return m_data[pos]; }
+  size_t blockSize(void)
+  {
+    return BLOCK_SIZE;
+  }
+  size_t blockLength(void) const
+  {
+    return m_data.size();
+  }
+  uint64_t& operator()(const uint64_t pos)
+  {
+    return m_data[pos];
+  }
+  uint64_t operator()(const uint64_t pos) const
+  {
+    return m_data[pos];
+  }
 
 protected:
   uint64_t m_length;
@@ -88,6 +101,7 @@ protected:
   static const uint64_t ZERO_;
   static const uint64_t ONE_;
 };
+
 
 /*******************************************************************************
  *
@@ -98,6 +112,7 @@ protected:
 inline bool operator==(const BinaryVector &lhs, const BinaryVector &rhs) {
   return lhs.isSame(rhs, true);
 }
+
 
 inline int64_t gauss_eliminate(std::vector<BinaryVector> &M,
                                const int64_t start_col = 0)
@@ -128,8 +143,10 @@ inline int64_t gauss_eliminate(std::vector<BinaryVector> &M,
   return rank;
 }
 
-inline std::vector<uint64_t>
-string_to_bignum(std::string val, uint64_t blockSize, uint64_t base) {
+
+inline std::vector<uint64_t> string_to_bignum(std::string val,
+                                              uint64_t blockSize,
+                                              uint64_t base) {
   std::vector<uint64_t> ret;
   if (blockSize * log2(base) > 64) {
     throw std::runtime_error(
@@ -146,6 +163,7 @@ string_to_bignum(std::string val, uint64_t blockSize, uint64_t base) {
   return ret;
 }
 
+
 inline std::vector<uint64_t> string_to_bignum(std::string val) {
   std::string type = val.substr(0, 2);
   if (type == "0b" || type == "0B")
@@ -161,6 +179,7 @@ inline std::vector<uint64_t> string_to_bignum(std::string val) {
   }
 }
 
+
 /*******************************************************************************
  *
  * BinaryVector Class Methods
@@ -170,17 +189,22 @@ inline std::vector<uint64_t> string_to_bignum(std::string val) {
 const uint64_t BinaryVector::ZERO_ = 0ULL;
 const uint64_t BinaryVector::ONE_ = 1ULL;
 
-BinaryVector::BinaryVector(std::string val) {
+BinaryVector::BinaryVector(std::string val) 
+{
   m_data = string_to_bignum(val);
   m_length = m_data.size() << BLOCK_BITS;
 }
 
-void BinaryVector::setLength(uint64_t length) {
+
+void BinaryVector::setLength(uint64_t length) 
+{
   m_length = length;
   m_data.assign((length + BLOCK_SIZE - 1) >> BLOCK_BITS, ZERO_);
 }
 
-void BinaryVector::setValue(bool value, uint64_t pos) {
+
+void BinaryVector::setValue(bool value, uint64_t pos) 
+{
   auto q = pos >> BLOCK_BITS;
   auto r = pos & BLOCK_MASK;
   if (value)
@@ -189,11 +213,14 @@ void BinaryVector::setValue(bool value, uint64_t pos) {
     m_data[q] &= ~(ONE_ << r);
 }
 
-void BinaryVector::flipAt(const uint64_t pos) {
+
+void BinaryVector::flipAt(const uint64_t pos) 
+{
   auto q = pos >> BLOCK_BITS;
   auto r = pos & BLOCK_MASK;
   m_data[q] ^= (ONE_ << r);
 }
+
 
 BinaryVector &BinaryVector::operator+=(const BinaryVector &rhs) {
   const auto size = m_data.size();
@@ -202,11 +229,14 @@ BinaryVector &BinaryVector::operator+=(const BinaryVector &rhs) {
   return (*this);
 }
 
-bool BinaryVector::operator[](const uint64_t pos) const {
+
+bool BinaryVector::operator[](const uint64_t pos) const 
+{
   auto q = pos >> BLOCK_BITS;
   auto r = pos & BLOCK_MASK;
   return ((m_data[q] & (ONE_ << r)) != 0);
 }
+
 
 void BinaryVector::swap(BinaryVector &rhs) {
   uint64_t tmp;
@@ -217,6 +247,7 @@ void BinaryVector::swap(BinaryVector &rhs) {
   m_data.swap(rhs.m_data);
 }
 
+
 bool BinaryVector::isZero() const {
   const size_t size = m_data.size();
   for (size_t i = 0; i < size; i++)
@@ -224,6 +255,7 @@ bool BinaryVector::isZero() const {
       return false;
   return true;
 }
+
 
 bool BinaryVector::isSame(const BinaryVector &rhs) const {
   if (m_length != rhs.m_length)
@@ -235,6 +267,7 @@ bool BinaryVector::isSame(const BinaryVector &rhs) const {
   }
   return true;
 }
+
 
 bool BinaryVector::isSame(const BinaryVector &rhs, bool pad) const {
   if (!pad)
@@ -258,6 +291,7 @@ bool BinaryVector::isSame(const BinaryVector &rhs, bool pad) const {
 
   return true;
 }
+
 
 std::vector<uint64_t> BinaryVector::nonzeroIndices() const {
   std::vector<uint64_t> result;
@@ -284,8 +318,9 @@ std::vector<uint64_t> BinaryVector::nonzeroIndices() const {
   return result;
 }
 
+
 //------------------------------------------------------------------------------
 } // end namespace BV
-} // namespace AER
+} // AER
 //------------------------------------------------------------------------------
 #endif
