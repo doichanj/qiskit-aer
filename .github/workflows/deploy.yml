@@ -26,7 +26,7 @@ jobs:
         env:
           CIBW_BEFORE_ALL: "yum install -y yum-utils wget && wget -q https://developer.download.nvidia.com/compute/cuda/11.7.0/local_installers/cuda-repo-rhel7-11-7-local-11.7.0_515.43.04-1.x86_64.rpm && rpm -i cuda-repo-rhel7-11-7-local-11.7.0_515.43.04-1.x86_64.rpm && yum clean all && yum -y install cuda && yum -y install openblas-devel && yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo && yum clean all"
           CIBW_SKIP: "*-manylinux_i686 cp310* pp* cp36* *musllinux*"
-          CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=doichan_aer_test AER_THRUST_BACKEND=CUDA CUDACXX=/usr/local/cuda/bin/nvcc AER_CUDA_ARCH="7.0 7.2 8.0 8.6 8.7 AER_GPU_SITE_PACKAGES=true"
+          CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=doichan_aer_test AER_THRUST_BACKEND=CUDA CUDACXX=/usr/local/cuda/bin/nvcc AER_CUDA_ARCH="7.0 7.2 8.0 8.6 8.7" AER_GPU_SITE_PACKAGES=true
         run: |
           python -m cibuildwheel --output-dir wheelhouse
       - uses: actions/upload-artifact@v2
