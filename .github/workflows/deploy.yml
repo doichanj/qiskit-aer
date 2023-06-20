@@ -11,7 +11,6 @@ jobs:
         name: Install Python
         with:
           python-version: '3.8'
-          cache: 'pip'
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
         if: runner.os == 'Windows'
