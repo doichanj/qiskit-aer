@@ -266,7 +266,6 @@ if(AER_THRUST_SUPPORTED)
 			execute_process(COMMAND "${Python3_EXECUTABLE}" -c "from distutils.sysconfig import get_python_lib; print (get_python_lib())"  OUTPUT_VARIABLE PYTHON_SITE_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
 			message(STATUS "PYTHON_SITE_PATH = ${PYTHON_SITE_PATH}")
 
-			execute_process(COMMAND "${Python3_EXECUTABLE} -m pip install nvidia-cuda-runtime-cu11 nvidia-cublas-cu11 nvidia-cusolver-cu11 nvidia-cusparse-cu11 cuquantum-cu11")
 			set(AER_COMPILER_DEFINITIONS ${AER_COMPILER_DEFINITIONS} THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA)
 			set(AER_COMPILER_DEFINITIONS ${AER_COMPILER_DEFINITIONS} AER_CUSTATEVEC AER_CUTENSORNET)
 
