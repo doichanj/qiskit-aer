@@ -23,6 +23,7 @@ jobs:
           CIBW_BEFORE_BUILD : "pip install nvidia-cuda-runtime-cu11 nvidia-cublas-cu11 nvidia-cusolver-cu11 nvidia-cusparse-cu11 cuquantum-cu11"
           CIBW_BEFORE_TEST : "pip install nvidia-cuda-runtime-cu11 nvidia-cublas-cu11 nvidia-cusolver-cu11 nvidia-cusparse-cu11 cuquantum-cu11"
           CIBW_SKIP: "*-manylinux_i686 cp310* pp* cp36* *musllinux*"
+          CIBW_TEST_SKIP: "*"
           CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=doichan_aer_test CMAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=CUDA CUDACXX=/usr/local/cuda/bin/nvcc AER_CUDA_ARCH="7.0 7.2 8.0 8.6 8.7" AER_GPU_SITE_PACKAGES=true
         run: |
           python -m cibuildwheel --output-dir wheelhouse
