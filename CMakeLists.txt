@@ -263,7 +263,7 @@ if(AER_THRUST_SUPPORTED)
 			set(AER_GPU_SITE_PACKAGES $ENV{AER_GPU_SITE_PACKAGES})
 		endif()
 		if(AER_GPU_SITE_PACKAGES)
-			execute_process(COMMAND "${Python3_EXECUTABLE}" -c "from distutils.sysconfig import get_python_lib; print (get_python_lib())"  OUTPUT_VARIABLE PYTHON_SITE_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+			execute_process(COMMAND "${Python_EXECUTABLE}" -c "from distutils.sysconfig import get_python_lib; print (get_python_lib())"  OUTPUT_VARIABLE PYTHON_SITE_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
 			message(STATUS "PYTHON_SITE_PATH = ${PYTHON_SITE_PATH}")
 
 			set(AER_COMPILER_DEFINITIONS ${AER_COMPILER_DEFINITIONS} THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA)
