@@ -8,6 +8,11 @@ requires = [
   "pybind11>2.6",
   "oldest-supported-numpy; python_version>'3.7' or platform_machine=='aarch64' or platform_python_implementation=='PyPy'",
   "numpy==1.16.3; python_version<='3.7' and platform_machine!='aarch64' or platform_python_implementation=='PyPy'",
+  "nvidia-cuda-runtime-cu11",
+  "nvidia-cublas-cu11",
+  "nvidia-cusolver-cu11",
+  "nvidia-cusparse-cu11",
+  "cuquantum-cu11",
 ]
 build-backend = "setuptools.build_meta"
 
