@@ -281,7 +281,9 @@ if(AER_THRUST_SUPPORTED)
 			set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -L${PYTHON_SITE_PATH}/cuquantum/lib -l:libcustatevec.so.1 -l:libcutensornet.so.2")
 			set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}")
 			string(STRIP ${CUDA_NVCC_FLAGS} CUDA_NVCC_FLAGS)
-#			string(STRIP ${THRUST_DEPENDANT_LIBS} THRUST_DEPENDANT_LIBS)
+
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/cuquantum/lib -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib  -lcustatevec -lcutensornet -lcutensor")
+			string(STRIP ${THRUST_DEPENDANT_LIBS} THRUST_DEPENDANT_LIBS)
 		else()
 			set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${AER_CUDA_ARCH_FLAGS_EXPAND} -DAER_THRUST_CUDA -I${AER_SIMULATOR_CPP_SRC_DIR} -isystem ${AER_SIMULATOR_CPP_SRC_DIR}/third-party/headers -use_fast_math --expt-extended-lambda")
 
