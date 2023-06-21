@@ -6,7 +6,12 @@ jobs:
     name: Build qiskit-aer-cuQuantum wheels
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 512
+          swap-size-mb: 1024
+          remove-dotnet: 'true'      - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         name: Install Python
         with:
