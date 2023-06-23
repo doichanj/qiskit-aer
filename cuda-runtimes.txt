@@ -1,5 +1,0 @@
-nvidia-cuda-runtime-cu$CUDA_MAJOR
-nvidia-cublas-cu$CUDA_MAJOR
-nvidia-cusolver-cu$CUDA_MAJOR
-nvidia-cusparse-cu$CUDA_MAJOR
-cuquantum-cu$CUDA_MAJOR

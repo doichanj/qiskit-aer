@@ -34,6 +34,7 @@ jobs:
           CIBW_SKIP: "*-manylinux_i686 cp310* cp37* cp39* cp311* pp* cp36* *musllinux*"
           CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit_aer_gpu_cu11 CMAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=CUDA CUDACXX=/usr/local/cuda/bin/nvcc AER_CUDA_ARCH="7.0 7.2 8.0 8.6 8.7" AER_PYTHON_CUDA_ROOT=/root/.local LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.local/lib/python3.7/site-packages/nvidia/cuda_runtime/lib:/root/.local/lib/python3.7/site-packages/cuquantum/lib:/root/.local/lib/python3.8/site-packages/nvidia/cuda_runtime/lib:/root/.local/lib/python3.8/site-packages/cuquantum/lib:/root/.local/lib/python3.9/site-packages/nvidia/cuda_runtime/lib:/root/.local/lib/python3.9/site-packages/cuquantum/lib:/root/.local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/root/.local/lib/python3.10/site-packages/cuquantum/lib:/root/.local/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:/root/.local/lib/python3.11/site-packages/cuquantum/lib
           CIBW_REPAIR_WHEEL_COMMAND: 'auditwheel repair --exclude libcudart.so.11.0 --exclude libcustatevec.so.1 --exclude libcutensornet.so.2 --exclude libcutensor.so.1 --exclude libcutensorMg.so.1 --exclude libcusolver.so.11 --exclude libcusolverMg.so.11 --exclude libcusparse.so.11 --exclude libcublas.so.11 --exclude libcublasLt.so.11 -w {dest_dir} {wheel}'
+          CIBW_DEPENDENCY_VERSIONS: ./requirements_cu11.txt
         run: |
           python -m cibuildwheel --output-dir wheelhouse
       - uses: actions/upload-artifact@v2
