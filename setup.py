@@ -12,16 +12,25 @@ from skbuild import setup
 
 PACKAGE_NAME = os.getenv("QISKIT_AER_PACKAGE_NAME", "qiskit-aer")
 
-extras_requirements = {
-    "dask": ["dask", "distributed"],
-    "cuda": ["nvidia-cuda-runtime-cu11", "nvidia-cublas-cu11", "nvidia-cusolver-cu11", "nvidia-cusparse-cu11", "cuquantum-cu11"],
-}
+extras_requirements = {"dask": ["dask", "distributed"]}
 
-requirements = [
-    "qiskit-terra>=0.21.0",
-    "numpy>=1.16.3",
-    "scipy>=1.0",
-]
+if 'gpu' in PACKAGE_NAME:
+    requirements = [
+        "qiskit-terra>=0.21.0",
+        "numpy>=1.16.3",
+        "scipy>=1.0",
+        "nvidia-cuda-runtime-cu11",
+        "nvidia-cublas-cu11",
+        "nvidia-cusolver-cu11",
+        "nvidia-cusparse-cu11",
+        "cuquantum-cu11",
+    ]
+else:
+    requirements = [
+        "qiskit-terra>=0.21.0",
+        "numpy>=1.16.3",
+        "scipy>=1.0",
+    ]
 
 VERSION_PATH = os.path.join(os.path.dirname(__file__), "qiskit_aer", "VERSION.txt")
 with open(VERSION_PATH, "r") as version_file:

@@ -681,12 +681,9 @@ Before building Qiskit Aer with cuQuantum support, install required components v
 
 This example is for CUDA 11. Please replace cu11 to cu12 if your system has CUDA 12.
 
+Then to build with cuQuantum support, set the value `AER_PYTHON_CUDA_ROOT=<root of Python env>` as following example.
 
-
-
-For example,
-
-    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DCUQUANTUM_ROOT=path_to_cuQuantum -DCUTENSOR_ROOT=path_to_cuTENSOR -DAER_ENABLE_CUQUANTUM=true --
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DAER_PYTHON_CUDA_ROOT=qiskit-aer-venv --
 
 if you want to link cuQuantum library statically, set `CUQUANTUM_STATIC` to setup.py. 
 Otherwise you also have to set environmental variable LD_LIBRARY_PATH to indicate path to the cuQuantum libraries.
