@@ -637,7 +637,7 @@ options we have on `Aer` to CMake, we use its native mechanism:
 
 Qiskit Aer can exploit GPU's horsepower to accelerate some simulations, specially the larger ones.
 GPU access is supported via CUDA® (NVIDIA® chipset), so to build with GPU support, you need
-to have CUDA® >= 10.1 preinstalled. See install instructions [here](https://developer.nvidia.com/cuda-toolkit-archive)
+to have CUDA® >= 11.2 preinstalled. See install instructions [here](https://developer.nvidia.com/cuda-toolkit-archive)
 Please note that we only support GPU acceleration on Linux platforms at the moment.
 
 Once CUDA® is properly installed, you only need to set a flag so the build system knows what to do:
@@ -666,7 +666,7 @@ fails and the build system compiles all common architectures.
 
 Few notes on GPU builds:
 1. Building takes considerable more time than non-GPU build, so be patient :)
-2. CUDA® >= 10.1 imposes the restriction of building with g++ version not newer than 8
+2. CUDA® >= 11.2 imposes the restriction of building with g++ version not newer than 8
 3. We don't need NVIDIA® drivers for building, but we need them for running simulations
 4. Only Linux platforms are supported
 
