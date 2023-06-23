@@ -654,11 +654,11 @@ If you want to specify the CUDA® architecture instead of letting the build syst
 auto detect it, you can use the AER_CUDA_ARCH flag (can also be set as an ENV variable
 with the same name, although the flag takes precedence). For example:
 
-    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DAER_CUDA_ARCH="5.2"
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DAER_CUDA_ARCH="7.0"
 
 or
 
-    qiskit-aer$ export AER_CUDA_ARCH="5.2"
+    qiskit-aer$ export AER_CUDA_ARCH="7.0"
     qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA
 
 This will reduce the amount of compilation time when, for example, the architecture auto detection
@@ -675,9 +675,14 @@ cuStateVec APIs can be exploited to accelerate statevector, density_matrix and u
 cuTensorNet APIs can be exploited to tensor_network merthod.
 This implementation requires CUDA toolkit version 11.2 or higher and Volta or Ampare architecture GPUs.
 
-To build Qiskit Aer with cuQuantum support, please set the path to cuQuantum root directory to CUQUANTUM_ROOT
-and directory to cuTensor to CUTENSOR_ROOT then set AER_ENABLE_CUQUANTUM=true.
-as following.
+Before building Qiskit Aer with cuQuantum support, install required components via pip install as following.
+
+    qiskit-aer$ pip install nvidia-cuda-runtime-cu11 nvidia-cublas-cu11 nvidia-cusolver-cu11 nvidia-cusparse-cu11 cuquantum-cu11
+
+This example is for CUDA 11. Please replace cu11 to cu12 if your system has CUDA 12.
+
+
+
 
 For example,
 

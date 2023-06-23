@@ -14,11 +14,7 @@ PACKAGE_NAME = os.getenv("QISKIT_AER_PACKAGE_NAME", "qiskit-aer")
 
 extras_requirements = {
     "dask": ["dask", "distributed"],
-    "cuda": ["nvidia-cuda-runtime-cu11"],
-    "cuda": ["nvidia-cublas-cu11"],
-    "cuda": ["nvidia-cusolver-cu11"],
-    "cuda": ["nvidia-cusparse-cu11"],
-    "cuda": ["cuquantum-cu11"],
+    "cuda": ["nvidia-cuda-runtime-cu11", "nvidia-cublas-cu11", "nvidia-cusolver-cu11", "nvidia-cusparse-cu11", "cuquantum-cu11"],
 }
 
 requirements = [
