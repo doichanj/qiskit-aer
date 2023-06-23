@@ -12,7 +12,14 @@ from skbuild import setup
 
 PACKAGE_NAME = os.getenv("QISKIT_AER_PACKAGE_NAME", "qiskit-aer")
 
-extras_requirements = {"dask": ["dask", "distributed"]}
+extras_requirements = {
+    "dask": ["dask", "distributed"],
+    "cuda": ["nvidia-cuda-runtime-cu11", "cuda"],
+    "cuda": ["nvidia-cublas-cu11", "cuda"],
+    "cuda": ["nvidia-cusolver-cu11", "cuda"],
+    "cuda": ["nvidia-cusparse-cu11", "cuda"],
+    "cuda": ["cuquantum-cu11", "cuda"],
+}
 
 requirements = [
     "qiskit-terra>=0.21.0",
