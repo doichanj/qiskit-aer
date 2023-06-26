@@ -19,11 +19,11 @@ if 'gpu' in PACKAGE_NAME:
         "qiskit-terra>=0.21.0",
         "numpy>=1.16.3",
         "scipy>=1.0",
-        "nvidia-cuda-runtime-cu11>=11.8.89",
-        "nvidia-cublas-cu11>=11.11.3.6",
-        "nvidia-cusolver-cu11>=11.4.1.48",
-        "nvidia-cusparse-cu11>=11.7.5.86",
-        "cuquantum-cu11>=23.3.0",
+        "nvidia-cuda-runtime-cu12>=12.1.105",
+        "nvidia-cublas-cu12>=12.1.3.1",
+        "nvidia-cusolver-cu12>=11.4.5.107",
+        "nvidia-cusparse-cu12>=12.1.0.106",
+        "cuquantum-cu12>=23.3.0",
     ]
 else:
     requirements = [
