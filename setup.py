@@ -50,7 +50,7 @@ if 'gpu' in PACKAGE_NAME:
             "cuquantum-cu11>=23.3.0",
         ]
         classifiers_cuda = [
-            "Environment :: GPU :: NVIDIA CUDA :: 11"
+            "Environment :: GPU :: NVIDIA CUDA :: 11",
         ]
     else:
         requirements_cuda = [
@@ -61,10 +61,10 @@ if 'gpu' in PACKAGE_NAME:
             "cuquantum-cu12>=23.3.0",
         ]
         classifiers_cuda = [
-            "Environment :: GPU :: NVIDIA CUDA :: 12"
+            "Environment :: GPU :: NVIDIA CUDA :: 12",
         ]
-    requirements.append(requirements_cuda)
-    classifiers.append(classifiers_cuda)
+    requirements.extend(requirements_cuda)
+    classifiers.extend(classifiers_cuda)
 
 
 VERSION_PATH = os.path.join(os.path.dirname(__file__), "qiskit_aer", "VERSION.txt")
