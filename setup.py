@@ -9,10 +9,8 @@ import platform
 import setuptools
 from skbuild import setup
 
-
 PACKAGE_NAME = os.getenv("QISKIT_AER_PACKAGE_NAME", "qiskit-aer")
 CUDA_MAJOR = os.getenv("QISKIT_AER_CUDA_MAJOR", "12")
-
 
 extras_requirements = {"dask": ["dask", "distributed"]}
 
@@ -22,7 +20,7 @@ requirements = [
     "scipy>=1.0",
 ]
 
-classifiers=[
+classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: Apache Software License",
     "Intended Audience :: Developers",
@@ -40,32 +38,31 @@ classifiers=[
     "Topic :: Scientific/Engineering",
 ]
 
-if 'gpu' in PACKAGE_NAME:
-    if '11' in CUDA_MAJOR:
+if "gpu" in PACKAGE_NAME:
+    if "11" in CUDA_MAJOR:
         requirements_cuda = [
-            "nvidia-cuda-runtime-cu11",
-            "nvidia-cublas-cu11",
-            "nvidia-cusolver-cu11",
-            "nvidia-cusparse-cu11",
-            "cuquantum-cu11",
+            "nvidia-cuda-runtime-cu11>=11.8.89",
+            "nvidia-cublas-cu11>=11.11.3.6",
+            "nvidia-cusolver-cu11>=11.4.1.48",
+            "nvidia-cusparse-cu11>=11.7.5.86",
+            "cuquantum-cu11>=23.3.0",
         ]
         classifiers_cuda = [
             "Environment :: GPU :: NVIDIA CUDA :: 11",
         ]
     else:
         requirements_cuda = [
-            "nvidia-cuda-runtime-cu12",
-            "nvidia-cublas-cu12",
-            "nvidia-cusolver-cu12",
-            "nvidia-cusparse-cu12",
-            "cuquantum-cu12",
+            "nvidia-cuda-runtime-cu12>=12.1.105",
+            "nvidia-cublas-cu12>=12.1.3.1",
+            "nvidia-cusolver-cu12>=11.4.5.107",
+            "nvidia-cusparse-cu12>=12.1.0.106",
+            "cuquantum-cu12>=23.3.0",
         ]
         classifiers_cuda = [
             "Environment :: GPU :: NVIDIA CUDA :: 12",
         ]
     requirements.extend(requirements_cuda)
     classifiers.extend(classifiers_cuda)
-
 
 VERSION_PATH = os.path.join(os.path.dirname(__file__), "qiskit_aer", "VERSION.txt")
 with open(VERSION_PATH, "r") as version_file:

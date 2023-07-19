@@ -35,6 +35,11 @@ If your system has CUDA&reg; 12 installed:
 pip install qiskit-aer-gpu-cu12
 ```
 
+The package above is for CUDA&reg 12, so if your system has CUDA&reg; 11 installed, install separate package:
+```bash
+pip install qiskit-aer-gpu-cu11
+```
+
 This will overwrite your current `qiskit-aer` package installation giving you
 the same functionality found in the canonical `qiskit-aer` package, plus the
 ability to run the GPU supported simulators: statevector, density matrix, and unitary.
