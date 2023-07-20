@@ -277,25 +277,27 @@ if(AER_THRUST_SUPPORTED)
 			set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -I${PYTHON_SITE_PATH}/cuquantum/include")
 			set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -I${PYTHON_SITE_PATH}/cutensor/include")
 			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--disable-new-dtags")
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,-rpath,'$ORIGIN/../../nvidia/cublas/lib'")
 			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,-rpath,'$ORIGIN/../../nvidia/cusolver/lib'")
 			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,-rpath,'$ORIGIN/../../nvidia/cusparse/lib'")
-			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,-rpath,'$ORIGIN/../../cutensor/lib'")
 			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,-rpath,'$ORIGIN/../../nvidia/cuda_runtime/lib'")
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,-rpath,'$ORIGIN/../../cutensor/lib'")
 			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,-rpath,'$ORIGIN/../../cuquantum/lib'")
-#			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,'-l:libcusolver.so.${CUDA_VERSION_MAJOR}'")
-#			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,'-l:libcusparse.so.${CUDA_VERSION_MAJOR}'")
-#			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcustatevec.so.1")
-#			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcutensornet.so.2")
-#			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--as-needed")
-			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/cuquantum/lib -l:libcustatevec.so.1 -l:libcutensornet.so.2")
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcusolver.so.11")
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcusparse.so.${CUDA_VERSION_MAJOR}")
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcustatevec.so.1")
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcutensornet.so.2")
+#			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/cuquantum/lib -l:libcustatevec.so.1 -l:libcutensornet.so.2")
 
 			if(CUDA_VERSION_MAJOR STREQUAL "11")
-#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
-				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
+				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
+#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
 			else()
-#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR},-as-needed")
-				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}")
+				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR},-as-needed")
+#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}")
 			endif()
+			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--as-needed")
+
 			string(STRIP ${CUDA_NVCC_FLAGS} CUDA_NVCC_FLAGS)
 			string(STRIP ${THRUST_DEPENDANT_LIBS} THRUST_DEPENDANT_LIBS)
 		else()
@@ -400,9 +402,7 @@ set(AER_LIBRARIES
 	AER_DEPENDENCY_PKG::nlohmann_json
 	AER_DEPENDENCY_PKG::spdlog
 	Threads::Threads
-	${CMAKE_DL_LIBS}
-	${THRUST_DEPENDANT_LIBS}
-	${MPI_DEPENDANT_LIBS})
+	${CMAKE_DL_LIBS})
 
 set(AER_COMPILER_DEFINITIONS ${AER_COMPILER_DEFINITIONS} ${CONAN_DEFINES})
 if(SKBUILD) # Terra Addon build
