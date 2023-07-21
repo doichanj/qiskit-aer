@@ -302,11 +302,11 @@ if(AER_THRUST_SUPPORTED)
 
 
 			if(CUDA_VERSION_MAJOR STREQUAL "11")
-				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
-#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
+#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
+				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}.0")
 			else()
-				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR},-as-needed")
-#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}")
+#				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--no-as-needed,-l:libcudart.so.${CUDA_VERSION_MAJOR},-as-needed")
+				set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -L${PYTHON_SITE_PATH}/nvidia/cuda_runtime/lib -l:libcudart.so.${CUDA_VERSION_MAJOR}")
 			endif()
 			set(THRUST_DEPENDANT_LIBS "${THRUST_DEPENDANT_LIBS} -Wl,--as-needed")
 
