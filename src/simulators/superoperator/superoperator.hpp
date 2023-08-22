@@ -15,7 +15,6 @@
 #ifndef _qv_superoperator_hpp_
 #define _qv_superoperator_hpp_
 
-
 #include "framework/utils.hpp"
 #include "simulators/density_matrix/densitymatrix.hpp"
 
@@ -26,7 +25,7 @@ namespace QV {
 // Superoperator class
 //============================================================================
 
-// This class is derived from the DensityMatrix class and stores an N-qubit 
+// This class is derived from the DensityMatrix class and stores an N-qubit
 // superoperator as a 2 * N-qubit vector.
 // The vector is formed using column-stacking vectorization of the
 // superoperator (itself with respect to column-stacking vectorization).
@@ -44,28 +43,36 @@ public:
   // Constructors and Destructor
   //-----------------------------------------------------------------------
 
-  Superoperator() : Superoperator(0) {};
+  Superoperator() : Superoperator(0){};
   explicit Superoperator(size_t num_qubits);
-  Superoperator(const Superoperator& obj) = delete;
-  Superoperator &operator=(const Superoperator& obj) = delete;
+  Superoperator(const Superoperator &obj){};
+  Superoperator &operator=(const Superoperator &obj){};
 
   //-----------------------------------------------------------------------
   // Utility functions
   //-----------------------------------------------------------------------
-  
+
   // Set the size of the vector in terms of qubit number
   void set_num_qubits(size_t num_qubits);
 
   // Returns the number of qubits for the superoperator
-  virtual uint_t num_qubits() const override {return num_qubits_;}
+  virtual uint_t num_qubits() const override { return num_qubits_; }
 
   // Initialize to the identity superoperator
   void initialize();
 
+  // initialize from existing state (copy)
+  void initialize(const Superoperator<data_t> &obj) {
+    BaseDensity::copy_qv(obj);
+    num_qubits_ = obj.num_qubits_;
+  }
+
   // Initializes the vector to a custom initial state.
   // The matrix can either be superoperator matrix or unitary matrix.
   // The type is inferred by the dimensions of the input matrix.
-  void initialize_from_matrix(const AER::cmatrix_t &data);
+  template <typename T>
+  void initialize_from_matrix(const matrix<std::complex<T>> &data);
+  void initialize_from_matrix(matrix<std::complex<data_t>> &&data);
 
 protected:
   // Number of qubits for the superoperator
@@ -77,7 +84,6 @@ protected:
  * Implementations
  *
  ******************************************************************************/
-
 
 //------------------------------------------------------------------------------
 // Constructors & Destructor
@@ -100,16 +106,16 @@ void Superoperator<data_t>::set_num_qubits(size_t num_qubits) {
   BaseDensity::set_num_qubits(2 * num_qubits);
 }
 
-
 template <typename data_t>
 void Superoperator<data_t>::initialize() {
   // Set underlying unitary matrix to identity
   BaseUnitary::initialize();
 }
 
-
 template <class data_t>
-void Superoperator<data_t>::initialize_from_matrix(const AER::cmatrix_t &mat) {
+template <typename T>
+void Superoperator<data_t>::initialize_from_matrix(
+    const matrix<std::complex<T>> &mat) {
   if (AER::Utils::is_square(mat)) {
     const size_t nrows = mat.GetRows();
     if (nrows == BaseUnitary::rows_) {
@@ -121,21 +127,45 @@ void Superoperator<data_t>::initialize_from_matrix(const AER::cmatrix_t &mat) {
       // If the input matrix has half the number of rows we assume it is
       // A unitary matrix input so we convert to a superoperator
       BaseUnitary::initialize_from_matrix(
-        AER::Utils::tensor_product(AER::Utils::conjugate(mat), mat)
-      );
+          AER::Utils::tensor_product(AER::Utils::conjugate(mat), mat));
       return;
     }
   }
   // Throw an exception if the input matrix is the wrong size for
   // unitary or superoperator input
-  throw std::runtime_error(
-    "Superoperator::initial matrix is wrong size (" +
-    std::to_string(BaseUnitary::rows_) + "," +
-    std::to_string(BaseUnitary::rows_) + ")!=(" +
-    std::to_string(mat.GetRows()) + "," + std::to_string(mat.GetColumns()) + ")."
-  );
+  throw std::runtime_error("Superoperator::initial matrix is wrong size (" +
+                           std::to_string(BaseUnitary::rows_) + "," +
+                           std::to_string(BaseUnitary::rows_) + ")!=(" +
+                           std::to_string(mat.GetRows()) + "," +
+                           std::to_string(mat.GetColumns()) + ").");
 }
 
+template <class data_t>
+void Superoperator<data_t>::initialize_from_matrix(
+    matrix<std::complex<data_t>> &&mat) {
+  if (AER::Utils::is_square(mat)) {
+    const size_t nrows = mat.GetRows();
+    if (nrows == BaseUnitary::rows_) {
+      // The matrix is the same size as the superoperator matrix so we
+      // initialze as the matrix.
+      BaseUnitary::initialize_from_matrix(std::move(mat));
+      return;
+    } else if (nrows * nrows == BaseUnitary::rows_) {
+      // If the input matrix has half the number of rows we assume it is
+      // A unitary matrix input so we convert to a superoperator
+      BaseUnitary::initialize_from_matrix(
+          AER::Utils::tensor_product(AER::Utils::conjugate(mat), mat));
+      return;
+    }
+  }
+  // Throw an exception if the input matrix is the wrong size for
+  // unitary or superoperator input
+  throw std::runtime_error("Superoperator::initial matrix is wrong size (" +
+                           std::to_string(BaseUnitary::rows_) + "," +
+                           std::to_string(BaseUnitary::rows_) + ")!=(" +
+                           std::to_string(mat.GetRows()) + "," +
+                           std::to_string(mat.GetColumns()) + ").");
+}
 
 //------------------------------------------------------------------------------
 } // end namespace QV
@@ -144,11 +174,11 @@ void Superoperator<data_t>::initialize_from_matrix(const AER::cmatrix_t &mat) {
 
 // ostream overload for templated qubitvector
 template <typename data_t>
-inline std::ostream &operator<<(std::ostream &out, const AER::QV::Superoperator<data_t>&m) {
+inline std::ostream &operator<<(std::ostream &out,
+                                const AER::QV::Superoperator<data_t> &m) {
   out << m.copy_to_matrix();
   return out;
 }
 
 //------------------------------------------------------------------------------
 #endif // end module
-

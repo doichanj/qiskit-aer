@@ -18,7 +18,7 @@ rhs*_op.pyx
 *.whl
 *.egg*
 build/*
-qiskit/providers/aer/backends/libomp.dylib
+*libomp.dylib
 
 # Ignore macOS DS_Store
 .DS_Store
@@ -35,3 +35,6 @@ test/.asv
 docs/_build/
 docs/stubs/
 docs/api/
+
+# Ignore DASK temporary files
+dask-worker-space/*

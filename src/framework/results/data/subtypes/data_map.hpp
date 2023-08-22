@@ -1,7 +1,7 @@
 /**
  * This code is part of Qiskit.
  *
- * (C) Copyright IBM 2020.
+ * (C) Copyright IBM 2021.
  *
  * This code is licensed under the Apache License, Version 2.0. You may
  * obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -25,23 +25,26 @@ template <template <class> class Data, class T, size_t N = 1>
 class DataMap {
 public:
   // Access data
-  auto& value() { return data_; }
+  auto &value() { return data_; }
 
   // The following protected functions are designed to be called via
-  // a mixin class that inherits this class. 
+  // a mixin class that inherits this class.
 
   // Add data (copy)
   template <typename... Args,
-            typename = typename std::enable_if<sizeof...(Args) == N-1>::type>
-  void add(const T &data, const std::string &key, const Args &... inner_keys);
+            typename = typename std::enable_if<sizeof...(Args) == N - 1>::type>
+  void add(const T &data, const std::string &key, const Args &...inner_keys);
 
   // Add data (move)
   template <typename... Args,
-            typename = typename std::enable_if<sizeof...(Args) == N-1>::type>
-  void add(T &&data, const std::string &key, const Args &... inner_keys);
+            typename = typename std::enable_if<sizeof...(Args) == N - 1>::type>
+  void add(T &&data, const std::string &key, const Args &...inner_keys);
 
   // Combine with another data object
-  void combine(DataMap<Data, T, N>&& other);
+  void combine(DataMap<Data, T, N> &&other);
+
+  // copy from another data onject
+  void copy(DataMap<Data, T, N> &other);
 
   // Clear all stored data
   void clear();
@@ -59,13 +62,12 @@ protected:
   stringmap_t<DataMap<Data, T, N - 1>> data_;
 };
 
-
 // Template specialization for N=1 case
 template <template <class> class Data, class T>
 class DataMap<Data, T, 1> {
 public:
   // Access data
-  auto& value() { return data_; }
+  auto &value() { return data_; }
 
   // Add data (copy)
   void add(const T &data, const std::string &key);
@@ -74,7 +76,10 @@ public:
   void add(T &&data, const std::string &key);
 
   // Combine with another data object
-  void combine(DataMap<Data, T, 1>&& other);
+  void combine(DataMap<Data, T, 1> &&other);
+
+  // copy from another data onject
+  void copy(DataMap<Data, T, 1> &other);
 
   // Clear all stored data
   void clear();
@@ -92,7 +97,6 @@ protected:
   stringmap_t<Data<T>> data_;
 };
 
-
 //------------------------------------------------------------------------------
 // Implementation N
 //------------------------------------------------------------------------------
@@ -100,7 +104,7 @@ protected:
 template <template <class> class Data, class T, size_t N>
 template <typename... Args, typename>
 void DataMap<Data, T, N>::add(const T &data, const std::string &key,
-                              const Args &... inner_keys) {
+                              const Args &...inner_keys) {
   if (enabled) {
     data_[key].add(data, inner_keys...);
   }
@@ -109,22 +113,38 @@ void DataMap<Data, T, N>::add(const T &data, const std::string &key,
 template <template <class> class Data, class T, size_t N>
 template <typename... Args, typename>
 void DataMap<Data, T, N>::add(T &&data, const std::string &key,
-                              const Args &... inner_keys) {
+                              const Args &...inner_keys) {
   if (enabled) {
     data_[key].add(std::move(data), inner_keys...);
   }
 }
 
 template <template <class> class Data, class T, size_t N>
-void DataMap<Data, T, N>::combine(DataMap<Data, T, N>&& other) {
+void DataMap<Data, T, N>::combine(DataMap<Data, T, N> &&other) {
   if (enabled) {
-    for (auto& pair: other.data_) {
-      const auto& key = pair.first;
+    for (auto &pair : other.data_) {
+      const auto &key = pair.first;
       // If empty we copy data without accumulating
       if (data_.find(key) == data_.end()) {
         data_[key] = std::move(pair.second);
       } else {
         data_[key].combine(std::move(pair.second));
+      }
+    }
+  }
+}
+
+template <template <class> class Data, class T, size_t N>
+void DataMap<Data, T, N>::copy(DataMap<Data, T, N> &other) {
+  if (enabled) {
+    for (auto &pair : other.data_) {
+      const auto &key = pair.first;
+      // If empty we copy data without accumulating
+      if (data_.find(key) == data_.end()) {
+        data_[key] = pair.second;
+      } else {
+        auto t = pair.second;
+        data_[key].combine(std::move(t));
       }
     }
   }
@@ -163,7 +183,7 @@ template <template <class> class Data, class T>
 void DataMap<Data, T, 1>::add(const T &data, const std::string &key) {
   if (enabled) {
     data_[key].add(data);
-    }
+  }
 }
 
 template <template <class> class Data, class T>
@@ -173,17 +193,32 @@ void DataMap<Data, T, 1>::add(T &&data, const std::string &key) {
   }
 }
 
-
 template <template <class> class Data, class T>
-void DataMap<Data, T, 1>::combine(DataMap<Data, T, 1>&& other) {
+void DataMap<Data, T, 1>::combine(DataMap<Data, T, 1> &&other) {
   if (enabled) {
-    for (auto& pair: other.data_) {
-      const auto& key = pair.first;
+    for (auto &pair : other.data_) {
+      const auto &key = pair.first;
       // If empty we copy data without accumulating
       if (data_.find(pair.first) == data_.end()) {
         data_[key] = std::move(pair.second);
       } else {
         data_[key].combine(std::move(pair.second));
+      }
+    }
+  }
+}
+
+template <template <class> class Data, class T>
+void DataMap<Data, T, 1>::copy(DataMap<Data, T, 1> &other) {
+  if (enabled) {
+    for (auto &pair : other.data_) {
+      const auto &key = pair.first;
+      // If empty we copy data without accumulating
+      if (data_.find(key) == data_.end()) {
+        data_[key] = pair.second;
+      } else {
+        auto t = pair.second;
+        data_[key].combine(std::move(t));
       }
     }
   }

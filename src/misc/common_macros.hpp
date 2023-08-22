@@ -15,8 +15,8 @@
 #ifndef QASM_SIMULATOR_COMMON_MACROS_HPP
 #define QASM_SIMULATOR_COMMON_MACROS_HPP
 
-#if defined(__GNUC__) && defined(__x86_64__)
- #define GNUC_AVX2
+#if defined(__GNUC__) && defined(__x86_64__) && defined(__AVX2__)
+#define GNUC_AVX2
 #endif
 
-#endif //QASM_SIMULATOR_COMMON_MACROS_HPP
+#endif // QASM_SIMULATOR_COMMON_MACROS_HPP

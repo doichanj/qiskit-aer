@@ -14,15 +14,15 @@
 
 """Decorator for using with Qiskit Aer unit tests."""
 
-import unittest
 import multiprocessing
+import unittest
 
-from qiskit import QuantumCircuit, assemble, execute
-from qiskit.providers.aer import AerProvider, QasmSimulator
-from qiskit.providers.aer import AerError
+from qiskit import QuantumCircuit, execute
+
+from qiskit_aer import AerProvider, AerSimulator
 
 # Backwards compatibility for Terra <= 0.13
-if not hasattr(QuantumCircuit, 'i'):
+if not hasattr(QuantumCircuit, "i"):
     QuantumCircuit.i = QuantumCircuit.iden
 
 
@@ -30,7 +30,7 @@ def is_method_available(backend, method):
     """Check if input method is available for the qasm simulator."""
     if isinstance(backend, str):
         backend = AerProvider().get_backend(backend)
-    avail = backend.available_methods();
+    avail = backend.available_methods()
     if method in avail:
         return True
     else:
@@ -62,10 +62,10 @@ def requires_omp(test_item):
         callable: the decorated function.
     """
     # Run dummy circuit to check OpenMP status
-    result = execute(QuantumCircuit(1), QasmSimulator()).result()
-    omp_enabled = result.metadata.get('omp_enabled', False)
+    result = AerSimulator().run(QuantumCircuit(1)).result()
+    omp_enabled = result.metadata.get("omp_enabled", False)
     skip = not omp_enabled
-    reason = 'OpenMP not available, skipping test'
+    reason = "OpenMP not available, skipping test"
     return unittest.skipIf(skip, reason)(test_item)
 
 
@@ -79,5 +79,22 @@ def requires_multiprocessing(test_item):
         callable: the decorated function.
     """
     skip = multiprocessing.cpu_count() <= 1
-    reason = 'Multicore CPU not available, skipping test'
+    reason = "Multicore CPU not available, skipping test"
     return unittest.skipIf(skip, reason)(test_item)
+
+
+def deprecated(method):
+    """Decorator that is for deprecated methods.
+
+    Args:
+        method (callable): a deprecated method.
+
+    Returns:
+        callable: the decorated method.
+    """
+
+    def _deprecated_method(self, *args, **kwargs):
+        with self.assertWarns(DeprecationWarning):
+            method(self, *args, **kwargs)
+
+    return _deprecated_method

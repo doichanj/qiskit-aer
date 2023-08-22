@@ -1,7 +1,7 @@
 /**
  * This code is part of Qiskit.
  *
- * (C) Copyright IBM 2020.
+ * (C) Copyright IBM 2021.
  *
  * This code is licensed under the Apache License, Version 2.0. You may
  * obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,10 +16,10 @@
 #define _aer_framework_result_data_pybind_subtypes_hpp_
 
 #include "framework/pybind_basics.hpp"
-#include "framework/results/data/subtypes/single_data.hpp"
 #include "framework/results/data/subtypes/accum_data.hpp"
 #include "framework/results/data/subtypes/average_data.hpp"
 #include "framework/results/data/subtypes/list_data.hpp"
+#include "framework/results/data/subtypes/single_data.hpp"
 
 namespace AerToPy {
 
@@ -39,8 +39,7 @@ py::object to_python(AER::AverageData<T> &&src);
 template <typename T>
 py::object to_python(AER::ListData<T> &&src);
 
-} //end namespace AerToPy
-
+} // end namespace AerToPy
 
 //============================================================================
 // Implementations

@@ -14,69 +14,76 @@
 Shared functionality and helpers for the unit tests.
 """
 
-from enum import Enum
-
 import inspect
 import logging
 import os
-import unittest
-from unittest.util import safe_repr
+import warnings
+from enum import Enum
 from itertools import repeat
-from random import choice, sample
 from math import pi
-import numpy as np
-import fixtures
+from random import choice, sample
+from unittest.util import safe_repr
 
+import fixtures
+import numpy as np
+from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
+from qiskit_aer import __path__ as main_path
 from qiskit.quantum_info import Operator, Statevector
 from qiskit.quantum_info.operators.predicates import matrix_equal
-from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
-from qiskit.providers.aer import __path__ as main_path
-from qiskit.test import QiskitTestCase
+from qiskit.test.base import FullQiskitTestCase
 
 
 class Path(Enum):
     """Helper with paths commonly used during the tests."""
+
     MAIN = main_path[0]
     TEST = os.path.dirname(__file__)
     # Examples path:    examples/
-    EXAMPLES = os.path.join(MAIN, '../examples')
+    EXAMPLES = os.path.join(MAIN, "../examples")
 
 
-class QiskitAerTestCase(QiskitTestCase):
+class QiskitAerTestCase(FullQiskitTestCase):
     """Helper class that contains common functionality."""
 
     def setUp(self):
         super().setUp()
-        self.useFixture(fixtures.Timeout(120, gentle=False))
+        self.useFixture(fixtures.Timeout(240, gentle=False))
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
+        allow_DeprecationWarning_modules = [
+            "cvxpy",
+        ]
+        for mod in allow_DeprecationWarning_modules:
+            warnings.filterwarnings("default", category=DeprecationWarning, module=mod)
+
         cls.moduleName = os.path.splitext(inspect.getfile(cls))[0]
         cls.log = logging.getLogger(cls.__name__)
 
         # Set logging to file and stdout if the LOG_LEVEL environment variable
         # is set.
-        if os.getenv('LOG_LEVEL'):
+        if os.getenv("LOG_LEVEL"):
             # Set up formatter.
-            log_fmt = ('{}.%(funcName)s:%(levelname)s:%(asctime)s:'
-                       ' %(message)s'.format(cls.__name__))
+            log_fmt = "{}.%(funcName)s:%(levelname)s:%(asctime)s:" " %(message)s".format(
+                cls.__name__
+            )
             formatter = logging.Formatter(log_fmt)
 
             # Set up the file handler.
-            log_file_name = '%s.log' % cls.moduleName
+            log_file_name = "%s.log" % cls.moduleName
             file_handler = logging.FileHandler(log_file_name)
             file_handler.setFormatter(formatter)
             cls.log.addHandler(file_handler)
 
             # Set the logging level from the environment variable, defaulting
             # to INFO if it is not a valid level.
-            level = logging._nameToLevel.get(os.getenv('LOG_LEVEL'),
-                                             logging.INFO)
+            level = logging._nameToLevel.get(os.getenv("LOG_LEVEL"), logging.INFO)
             cls.log.setLevel(level)
 
     @staticmethod
     def _get_resource_path(filename, path=Path.TEST):
-        """ Get the absolute path to a resource.
+        """Get the absolute path to a resource.
 
         Args:
             filename (string): filename or relative path to the resource.
@@ -88,17 +95,22 @@ class QiskitAerTestCase(QiskitTestCase):
 
     def assertSuccess(self, result):
         """Assert that simulation executed without errors"""
-        success = getattr(result, 'success', False)
+        success = getattr(result, "success", False)
         msg = result.status
         if not success:
-            for i, res in enumerate(getattr(result, 'results', [])):
-                if res.status != 'DONE':
-                    msg += ', (Circuit {}) {}'.format(i, res.status)
+            for i, res in enumerate(getattr(result, "results", [])):
+                if res.status != "DONE":
+                    msg += ", (Circuit {}) {}".format(i, res.status)
         self.assertTrue(success, msg=msg)
 
+    def assertNotSuccess(self, result):
+        """Assert that simulation executed with errors"""
+        success = getattr(result, "success", False)
+        msg = result.status
+        self.assertFalse(success, msg=msg)
+
     @staticmethod
-    def gate_circuits(gate_cls, num_angles=0, has_ctrl_qubits=False,
-                      rng=None, basis_states=None):
+    def gate_circuits(gate_cls, num_angles=0, has_ctrl_qubits=False, rng=None, basis_states=None):
         """
         Construct circuits from a gate class.
         Example of basis_states: ['010, '100'].
@@ -117,22 +129,21 @@ class QiskitAerTestCase(QiskitTestCase):
             params.append(5)
 
         gate = gate_cls(*params)
-        
+
         if basis_states is None:
-            basis_states = [bin(i)[2:].zfill(gate.num_qubits) \
-                            for i in range(1<<gate.num_qubits)]
+            basis_states = [bin(i)[2:].zfill(gate.num_qubits) for i in range(1 << gate.num_qubits)]
 
         circs = []
         qubit_permutation = list(rng.permutation(gate.num_qubits))
         for state in basis_states:
             circ = QuantumCircuit(gate.num_qubits)
             for i in qubit_permutation:
-                if state[i] == '1':
+                if state[i] == "1":
                     circ.x(i)
-            
+
             circ.append(gate, qubit_permutation)
             circs.append(circ)
-            
+
         return circs
 
     @staticmethod
@@ -141,8 +152,7 @@ class QiskitAerTestCase(QiskitTestCase):
         for pos, item in enumerate(items):
             # Try numeric difference first
             try:
-                delta = round(np.linalg.norm(np.array(obj) - np.array(item)),
-                              precision)
+                delta = round(np.linalg.norm(np.array(obj) - np.array(item)), precision)
                 if delta == 0:
                     return pos
             # If objects aren't numeric try direct equality comparison
@@ -161,8 +171,9 @@ class QiskitAerTestCase(QiskitTestCase):
         if pos is not None:
             items.pop(pos)
 
-    def compare_statevector(self, result, circuits, targets,
-                            ignore_phase=False, atol=1e-8, rtol=1e-5):
+    def compare_statevector(
+        self, result, circuits, targets, ignore_phase=False, atol=1e-8, rtol=1e-5
+    ):
         """Compare final statevectors to targets."""
         for pos, test_case in enumerate(zip(circuits, targets)):
             circuit, target = test_case
@@ -171,13 +182,12 @@ class QiskitAerTestCase(QiskitTestCase):
             test_msg = "Circuit ({}/{}):".format(pos + 1, len(circuits))
             with self.subTest(msg=test_msg):
                 msg = " {} != {}".format(output, target)
-                delta = matrix_equal(output.data, target.data,
-                                     ignore_phase=ignore_phase,
-                                     atol=atol, rtol=rtol)
+                delta = matrix_equal(
+                    output.data, target.data, ignore_phase=ignore_phase, atol=atol, rtol=rtol
+                )
                 self.assertTrue(delta, msg=msg)
 
-    def compare_unitary(self, result, circuits, targets,
-                        ignore_phase=False, atol=1e-8, rtol=1e-5):
+    def compare_unitary(self, result, circuits, targets, ignore_phase=False, atol=1e-8, rtol=1e-5):
         """Compare final unitary matrices to targets."""
         for pos, test_case in enumerate(zip(circuits, targets)):
             circuit, target = test_case
@@ -186,9 +196,9 @@ class QiskitAerTestCase(QiskitTestCase):
             test_msg = "Circuit ({}/{}):".format(pos + 1, len(circuits))
             with self.subTest(msg=test_msg):
                 msg = test_msg + " {} != {}".format(output.data, target.data)
-                delta = matrix_equal(output.data, target.data,
-                                     ignore_phase=ignore_phase,
-                                     atol=atol, rtol=rtol)
+                delta = matrix_equal(
+                    output.data, target.data, ignore_phase=ignore_phase, atol=atol, rtol=rtol
+                )
                 self.assertTrue(delta, msg=msg)
 
     def compare_counts(self, result, circuits, targets, hex_counts=True, delta=0):
@@ -204,8 +214,7 @@ class QiskitAerTestCase(QiskitTestCase):
             test_msg = "Circuit ({}/{}):".format(pos + 1, len(circuits))
             with self.subTest(msg=test_msg):
                 msg = test_msg + " {} != {}".format(output, target)
-                self.assertDictAlmostEqual(
-                    output, target, delta=delta, msg=msg)
+                self.assertDictAlmostEqual(output, target, delta=delta, msg=msg)
 
     def compare_memory(self, result, circuits, targets, hex_counts=True):
         """Compare memory list to target."""
@@ -230,7 +239,7 @@ class QiskitAerTestCase(QiskitTestCase):
         for pos, test_case in enumerate(zip(circuits, targets)):
             circuit, target = test_case
             value = None
-            metadata = getattr(result.results[0], 'metadata')
+            metadata = getattr(result.results[0], "metadata")
             if metadata:
                 value = metadata.get(key)
             test_msg = "Circuit ({}/{}):".format(pos + 1, len(circuits))
@@ -238,8 +247,9 @@ class QiskitAerTestCase(QiskitTestCase):
                 msg = " metadata {} value {} != {}".format(key, value, target)
                 self.assertEqual(value, target, msg=msg)
 
-    def assertDictAlmostEqual(self, dict1, dict2, delta=None, msg=None,
-                              places=None, default_value=0):
+    def assertDictAlmostEqual(
+        self, dict1, dict2, delta=None, msg=None, places=None, default_value=0
+    ):
         """
         Assert two dictionaries with numeric values are almost equal.
 
@@ -270,7 +280,7 @@ class QiskitAerTestCase(QiskitTestCase):
 
         if places is not None:
             success = True
-            standard_msg = ''
+            standard_msg = ""
             # check value for keys in target
             keys1 = set(dict1.keys())
             for key in keys1:
@@ -278,9 +288,11 @@ class QiskitAerTestCase(QiskitTestCase):
                 val2 = dict2.get(key, default_value)
                 if round(abs(val1 - val2), places) != 0:
                     success = False
-                    standard_msg += '(%s: %s != %s), ' % (safe_repr(key),
-                                                          safe_repr(val1),
-                                                          safe_repr(val2))
+                    standard_msg += "(%s: %s != %s), " % (
+                        safe_repr(key),
+                        safe_repr(val1),
+                        safe_repr(val2),
+                    )
             # check values for keys in counts, not in target
             keys2 = set(dict2.keys()) - keys1
             for key in keys2:
@@ -288,18 +300,20 @@ class QiskitAerTestCase(QiskitTestCase):
                 val2 = dict2.get(key, default_value)
                 if round(abs(val1 - val2), places) != 0:
                     success = False
-                    standard_msg += '(%s: %s != %s), ' % (safe_repr(key),
-                                                          safe_repr(val1),
-                                                          safe_repr(val2))
+                    standard_msg += "(%s: %s != %s), " % (
+                        safe_repr(key),
+                        safe_repr(val1),
+                        safe_repr(val2),
+                    )
             if success is True:
                 return
-            standard_msg = standard_msg[:-2] + ' within %s places' % places
+            standard_msg = standard_msg[:-2] + " within %s places" % places
 
         else:
             if delta is None:
                 delta = 1e-8  # default delta value
             success = True
-            standard_msg = ''
+            standard_msg = ""
             # check value for keys in target
             keys1 = set(dict1.keys())
             for key in keys1:
@@ -307,9 +321,11 @@ class QiskitAerTestCase(QiskitTestCase):
                 val2 = dict2.get(key, default_value)
                 if abs(val1 - val2) > delta:
                     success = False
-                    standard_msg += '(%s: %s != %s), ' % (safe_repr(key),
-                                                          safe_repr(val1),
-                                                          safe_repr(val2))
+                    standard_msg += "(%s: %s != %s), " % (
+                        safe_repr(key),
+                        safe_repr(val1),
+                        safe_repr(val2),
+                    )
             # check values for keys in counts, not in target
             keys2 = set(dict2.keys()) - keys1
             for key in keys2:
@@ -317,12 +333,14 @@ class QiskitAerTestCase(QiskitTestCase):
                 val2 = dict2.get(key, default_value)
                 if abs(val1 - val2) > delta:
                     success = False
-                    standard_msg += '(%s: %s != %s), ' % (safe_repr(key),
-                                                          safe_repr(val1),
-                                                          safe_repr(val2))
+                    standard_msg += "(%s: %s != %s), " % (
+                        safe_repr(key),
+                        safe_repr(val1),
+                        safe_repr(val2),
+                    )
             if success is True:
                 return
-            standard_msg = standard_msg[:-2] + ' within %s delta' % delta
+            standard_msg = standard_msg[:-2] + " within %s delta" % delta
 
         msg = self._formatMessage(msg, standard_msg)
         raise self.failureException(msg)
@@ -335,15 +353,15 @@ def _is_ci_fork_pull_request():
 
     Returns:
         bool: True if the tests are executed inside a CI tool, and the changes
-            are not against the "master" branch.
+            are not against the "main" branch.
     """
-    if os.getenv('TRAVIS'):
+    if os.getenv("TRAVIS"):
         # Using Travis CI.
-        if os.getenv('TRAVIS_PULL_REQUEST_BRANCH'):
+        if os.getenv("TRAVIS_PULL_REQUEST_BRANCH"):
             return True
-    elif os.getenv('APPVEYOR'):
+    elif os.getenv("APPVEYOR"):
         # Using AppVeyor CI.
-        if os.getenv('APPVEYOR_PULL_REQUEST_NUMBER'):
+        if os.getenv("APPVEYOR_PULL_REQUEST_NUMBER"):
             return True
     return False
 
@@ -360,27 +378,26 @@ def generate_random_circuit(n_qubits, n_gates, gate_types):
     Aqua had an issue of writing a random circuit generator, which was closed
     with the justification that it is moved to ignes.
     """
-    qr = QuantumRegister(n_qubits, 'qr')
-    cr = ClassicalRegister(n_qubits, 'cr')
+    qr = QuantumRegister(n_qubits, "qr")
+    cr = ClassicalRegister(n_qubits, "cr")
     circuit = QuantumCircuit(qr, cr)
 
     for _ in repeat(None, n_gates):
-
         # Choose the next gate
         op_name = choice(gate_types)
-        if op_name == 'id':
-            op_name = 'iden'
-        operation = eval('QuantumCircuit.' + op_name)
+        if op_name == "id":
+            op_name = "iden"
+        operation = eval("QuantumCircuit." + op_name)
 
         # Check if operation is one of u1, u2, u3
-        if op_name[0] == 'u' and op_name[1].isdigit():
+        if op_name[0] == "u" and op_name[1].isdigit():
             # Number of angles
             n_angles = int(op_name[1])
             # Number of qubits manipulated by the gate
             n_params = 1
         else:
             n_angles = 0
-            if op_name == 'measure':
+            if op_name == "measure":
                 n_params = 1
             else:
                 n_params = len(inspect.signature(operation).parameters) - 1
@@ -395,7 +412,7 @@ def generate_random_circuit(n_qubits, n_gates, gate_types):
         # Measurement operation
         # In all measure operations, the classical register is not random,
         # but has the same index as the quantum register
-        if op_name == 'measure':
+        if op_name == "measure":
             classical_regs = [cr[i] for i in qubit_indices]
         else:
             classical_regs = []

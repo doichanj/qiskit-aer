@@ -8,7 +8,10 @@ Qiskit Aer API Reference
     :maxdepth: 1
 
     aer_provider
-    aer_extensions
+    aer_jobs
+    aer_library
     aer_noise
-    aer_pulse
+    aer_primitives
     aer_utils
+    aer_quantum_info
+    circuit

@@ -1,14 +1,14 @@
 # Contributing
 
 First read the overall project contributing guidelines. These are all
-included in the qiskit documentation:
+included in the Qiskit documentation:
 
 https://qiskit.org/documentation/contributing_to_qiskit.html
 
 ## Contributing to Qiskit Aer
 
-In addition to the general guidelines there are specific details for
-contributing to aer, these are documented below.
+In addition to the general guidelines, there are specific details for
+contributing to Aer. These are documented below.
 
 ### Pull request checklist
 
@@ -18,26 +18,31 @@ please ensure that:
 1. The code follows the code style of the project and successfully
    passes the tests. For convenience, you can execute `tox` locally,
    which will run these checks and report any issues.
+
+   If your code fails the local style checks, you can use `tox -eblack`
+   and `tox -eclang` to automatically fix and update the code formatting
+   in python and C++, respectively.
+
 2. The documentation has been updated accordingly. In particular, if a
    function or class has been modified during the PR, please update the
    *docstring* accordingly.
 3. If it makes sense for your change that you have added new tests that
    cover the changes.
-4. Ensure that if your change has an end user facing impact (new feature,
-   deprecation, removal etc) that you have added a reno release note for that
+4. Ensure that if your change has an enduser-facing impact (new feature,
+   deprecation, removal, etc.), you have added a reno release note for that
    change and that the PR is tagged for the changelog.
 
 ### Changelog generation
 
 The changelog is automatically generated as part of the release process
 automation. This works through a combination of the git log and the pull
-request. When a release is tagged and pushed to github the release automation
+request. When a release is tagged and pushed to GitHub, the release automation
 bot looks at all commit messages from the git log for the release. It takes the
 PR numbers from the git log (assuming a squash merge) and checks if that PR had
-a `Changelog:` label on it. If there is a label it will add the git commit
+a `Changelog:` label on it. If there is a label, it will add the git commit
 message summary line from the git log for the release to the changelog.
 
-If there are multiple `Changelog:` tags on a PR the git commit message summary
+If there are multiple `Changelog:` tags on a PR, the git commit message summary
 line from the git log will be used for each changelog category tagged.
 
 The current categories for each label are as follows:
@@ -52,22 +57,22 @@ The current categories for each label are as follows:
 
 ### Release Notes
 
-When making any end user facing changes in a contribution we have to make sure
+When making any end user-facing changes in a contribution, we have to make sure
 we document that when we release a new version of qiskit-aer. The expectation
-is that if your code contribution has user facing changes that you will write
+is that if your code contribution has user-facing changes that you will write
 the release documentation for these changes. This documentation must explain
 what was changed, why it was changed, and how users can either use or adapt
-to the change. The idea behind release documentation is that when a naive
+to the change. The idea behind the release documentation is that when a naive
 user with limited internal knowledge of the project is upgrading from the
 previous release to the new one, they should be able to read the release notes,
-understand if they need to update their program which uses qiskit, and how they
+understand if they need to update their program which uses Qiskit, and how they
 would go about doing that. It ideally should explain why they need to make
 this change too, to provide the necessary context.
 
-To make sure we don't forget a release note or if the details of user facing
-changes over a release cycle we require that all user facing changes include
-documentation at the same time as the code. To accomplish this we use the
-[reno](https://docs.openstack.org/reno/latest/) tool which enables a git based
+To make sure we don't forget a release note if the details of user-facing
+changes over a release cycle, we require that all user facing changes include
+documentation at the same time as the code. To accomplish this, we use the
+[reno](https://docs.openstack.org/reno/latest/) tool which enables a git-based
 workflow for writing and compiling release notes.
 
 #### Adding a new release note
@@ -77,21 +82,21 @@ installed with::
 
     pip install -U reno
 
-Once you have reno installed you can make a new release note by running in
+Once you have reno installed, you can make a new release note by running in
 your local repository checkout's root::
 
     reno new short-description-string
 
 where short-description-string is a brief string (with no spaces) that describes
 what's in the release note. This will become the prefix for the release note
-file. Once that is run it will create a new yaml file in releasenotes/notes.
+file. Once that is run, it will create a new yaml file in releasenotes/notes.
 Then open that yaml file in a text editor and write the release note. The basic
 structure of a release note is restructured text in yaml lists under category
 keys. You add individual items under each category and they will be grouped
 automatically by release when the release notes are compiled. A single file
 can have as many entries in it as needed, but to avoid potential conflicts
-you'll want to create a new file for each pull request that has user facing
-changes. When you open the newly created file it will be a full template of
+you'll want to create a new file for each pull request that has user-facing
+changes. When you open the newly created file, it will be a full template of
 the different categories with a description of a category as a single entry
 in each category. You'll want to delete all the sections you aren't using and
 update the contents for those you are. For example, the end result should
@@ -132,19 +137,19 @@ deprecations:
 You can also look at other release notes for other examples.
 
 You can use any restructured text feature in them (code sections, tables,
-enumerated lists, bulleted list, etc) to express what is being changed as
-needed. In general you want the release notes to include as much detail as
+enumerated lists, bulleted list, etc.) to express what is being changed as
+needed. In general, you want the release notes to include as much detail as
 needed so that users will understand what has changed, why it changed, and how
 they'll have to update their code.
 
-After you've finished writing your release notes you'll want to add the note
+After you've finished writing your release notes, you'll want to add the note
 file to your commit with `git add` and commit them to your PR branch to make
 sure they're included with the code in your PR.
 
 ##### Linking to issues
 
-If you need to link to an issue or other github artifact as part of the release
-note this should be done using an inline link with the text being the issue
+If you need to link to an issue or other GitHub artifact as part of the release
+note, this should be done using an inline link with the text being the issue
 number. For example you would write a release note with a link to issue 12345
 as:
 
@@ -158,12 +163,12 @@ fixes:
 
 #### Generating the release notes
 
-After release notes have been added if you want to see what the full output of
-the release notes. In general the output from reno that we'll get is a rst
+After release notes have been added, if you want to see the full output of
+the release notes, you'll get the output as an rst
 (ReStructuredText) file that can be compiled by
-[sphinx](https://www.sphinx-doc.org/en/master/). To generate the rst file you
-use the ``reno report`` command. If you want to generate the full aer release
-notes for all releases (since we started using reno during 0.9) you just run::
+[sphinx](https://www.sphinx-doc.org/en/master/). To generate the rst file, you
+use the ``reno report`` command. If you want to generate the full Aer release
+notes for all releases (since we started using reno during 0.9), you just run::
 
     reno report
 
@@ -172,7 +177,7 @@ it has been tagged::
 
     reno report --version 0.5.0
 
-At release time ``reno report`` is used to generate the release notes for the
+At release time, ``reno report`` is used to generate the release notes for the
 release and the output will be submitted as a pull request to the documentation
 repository's [release notes file](
 https://github.com/Qiskit/qiskit/blob/master/docs/release_notes.rst)
@@ -180,27 +185,46 @@ https://github.com/Qiskit/qiskit/blob/master/docs/release_notes.rst)
 #### Building release notes locally
 
 Building The release notes are part of the standard qiskit-aer documentation
-builds. To check what the rendered html output of the release notes will look
-like for the current state of the repo you can run: `tox -edocs` which will
+builds. To check what the rendered HTML output of the release notes will look
+like for the current state of the repo, you need to install 
+[pandoc](https://pandoc.org/installing.html), then you can run: `tox -edocs` which will
 build all the documentation into `docs/_build/html` and the release notes in
 particular will be located at `docs/_build/html/release_notes.html`
+
+## Style and lint
+
+Qiskit Aer uses 3 tools for verifying code formatting and lint checking. The
+first tool is [black](https://github.com/psf/black) which is a Python code formatting
+tool that will automatically update the code formatting to a consistent style.
+The second tool is [pylint](https://www.pylint.org/) which is a code linter
+which does a deeper analysis of the Python code to find both style issues and
+potential bugs and other common issues in Python. The third tool is
+[clang-format](https://clang.llvm.org/docs/ClangFormat.html) which is a
+C++ code formatting tool that will automatically update codes with a consistent style.
+
+You can check that your local modifications conform to the style rules
+by running `tox -elint` which will run `black`, `pylint` and `clang-format`
+to check the local code formatting and lint. If black returns a code
+formatting error you can run `tox -eblack` to automatically update the
+code formatting to conform to the style. However, if `pylint` returns
+any error you will have to fix these issues by manually updating your code.
 
 ### Development Cycle
 
 The development cycle for qiskit-aer is all handled in the open using
-the project boards in Github for project management. We use milestones
-in Github to track work for specific releases. The features or other changes
-that we want to include in a release will be tagged and discussed in Github.
-As we're preparing a new release we'll document what has changed since the
+the project boards in GitHub for project management. We use milestones
+in GitHub to track work for specific releases. The features or other changes
+that we want to include in a release will be tagged and discussed in GitHub.
+As we're preparing a new release, we'll document what has changed since the
 previous version in the release notes.
 
 ### Branches
 
-* `master`:
+* `main`:
 
-The master branch is used for development of the next version of qiskit-aer.
+The main branch is used for development of the next version of qiskit-aer.
 It will be updated frequently and should not be considered stable. The API
-can and will change on master as we introduce and refine new features.
+can and will change on main as we introduce and refine new features.
 
 * `stable/*` branches:
 Branches under `stable/*` are used to maintain released versions of qiskit-aer.
@@ -211,18 +235,18 @@ merged to it are bugfixes.
 
 ### Release cycle
 
-When it is time to release a new minor version of qiskit-aer we will:
+When it is time to release a new minor version of qiskit-aer, we will:
 
 1.  Create a new tag with the version number and push it to github
-2.  Change the `master` version to the next release version.
+2.  Change the `main` version to the next release version.
 
-The release automation processes will be triggered by the new tag and perform
+The release automation processes will be triggered by the new tag and will perform
 the following steps:
 
 1.  Create a stable branch for the new minor version from the release tag
-    on the `master` branch
+    on the `main` branch
 2.  Build and upload binary wheels to pypi
-3.  Create a github release page with a generated changelog
+3.  Create a GitHub release page with a generated changelog
 4.  Generate a PR on the meta-repository to bump the Aer version and
     meta-package version.
 
@@ -263,7 +287,9 @@ most of the dependencies needed by the C++ source code. Internet connection may 
 when dependencies are added/updated, in order to download the required packages if they are not in your **Conan** local
 repository.
 
->  Note: Conan use can be disabled with the flag or environment variable ``DISABLE_CONAN=ON`` .
+>  Note: Conan use can be disabled with the flag or environment variable ``DISABLE_CONAN=ON``.  The Python package `conan`
+> is still required as a build dependency, it just will not called or used.
+
 This is useful for building from source offline, or to reuse the installed package dependencies.
 
 If we are only building the standalone version and do not want to install all Python requirements you can just install
@@ -275,7 +301,7 @@ You're now ready to build from source! Follow the instructions for your platform
 
 ### Linux
 
-Qiskit is officially supported on Red Hat, CentOS, Fedora and Ubuntu distributions, as long as you can install a GCC version that is C++14 compatible and the few dependencies we need.
+Qiskit is officially supported on Red Hat, CentOS, Fedora, and Ubuntu distributions, as long as you can install a GCC version that is C++14 compatible and a few dependencies we need.
 
 #### <a name="linux-dependencies"> Dependencies </a>
 
@@ -310,7 +336,7 @@ Ubuntu
     $ sudo apt install libopenblas-dev
 
 
-And of course, `git` is required in order to build from repositories
+And of course, `git` is required to build from repositories
 
 CentOS/Red Hat
 
@@ -328,19 +354,20 @@ Ubuntu
 
 There are two ways of building `Aer` simulators, depending on your goal:
 
-1. Build a python extension that works with Terra.
+1. Build a Python extension that works with Terra.
 2. Build a standalone executable.
 
 **Python extension**
 
-As any other python package, we can install from source code by just running:
+As any other Python package, we can install from source code by just running:
 
     qiskit-aer$ pip install .
 
 This will build and install `Aer` with the default options which is probably suitable for most of the users.
-There's another pythonic approach to build and install software: build the wheels distributable file.
+There's another Pythonic approach to build and install software: build the wheels distributable file.
 
-    qiskit-aer$ python ./setup.py bdist_wheel
+    qiskit-aer$ pip install build
+    qiskit-aer$ python -I -m build --wheel
 
 This is also the way we will choose to change default `Aer` behavior by passing parameters to the build system.
 
@@ -372,11 +399,16 @@ the `dist/` directory, so next step is installing it:
 
     qiskit-aer/dist$ pip install -U dist/qiskit_aer*.whl
 
+As we are using *scikit-build* and we need some *Python* dependencies to be present before compiling the C++ code, 
+we install those dependencies outside the regular setuptools *mechanism*. If you want to avoid automatic installation 
+of these packages set the environment variable DISABLE_DEPENDENCY_INSTALL (ON or 1).
+
+
 **Standalone Executable**
 
-If we want to build a standalone executable, we have to use *CMake* directly.
+If you want to build a standalone executable, you have to use *CMake* directly.
 The preferred way *CMake* is meant to be used, is by setting up an "out of
-source" build. So in order to build our standalone executable, we have to follow
+source" build. So in order to build your standalone executable, you have to follow
 these steps:
 
     qiskit-aer$ mkdir out
@@ -396,8 +428,8 @@ option):
 **Advanced options**
 
 Because the standalone version of `Aer` doesn't need Python at all, the build system is
-based on CMake, just like most of other C++ projects. So in order to pass all the different
-options we have on `Aer` to CMake we use it's native mechanism:
+based on CMake, just like most of other C++ projects. So to pass all the different
+options we have on `Aer` to CMake, we use its native mechanism:
 
     qiskit-aer/out$ cmake -DCMAKE_CXX_COMPILER=g++-9 -DAER_BLAS_LIB_PATH=/path/to/my/blas ..
 
@@ -421,20 +453,20 @@ You further need to have *Xcode Command Line Tools* installed on macOS:
 
 There are two ways of building `Aer` simulators, depending on your goal:
 
-1. Build a python extension that works with Terra;
+1. Build a Python extension that works with Terra;
 2. Build a standalone executable.
 
 **Python extension**
 
-As any other python package, we can install from source code by just running:
+As any other Python package, we can install from source code by just running:
 
     qiskit-aer$ pip install .
 
 This will build and install `Aer` with the default options which is probably suitable for most of the users.
-There's another pythonic approach to build and install software: build the wheels distributable file.
+There's another Pythonic approach to building and installing software: build the wheels distributable file.
 
 
-   qiskit-aer$ python ./setup.py bdist_wheel
+    qiskit-aer$ python ./setup.py bdist_wheel
 
 
 This is also the way we will choose to change default `Aer` behavior by passing parameters to the build system.
@@ -465,11 +497,15 @@ the `dist/` directory, so next step is installing it:
 
     qiskit-aer/dist$ pip install -U dist/qiskit_aer*.whl
 
+As we are using *scikit-build* and we need some *Python* dependencies to be present before compiling the C++ code,
+we install those dependencies outside the regular setuptools *mechanism*. If you want to avoid automatic installation
+of these packages set the environment variable DISABLE_DEPENDENCY_INSTALL (ON or 1).
+
 **Standalone Executable**
 
-If we want to build a standalone executable, we have to use **CMake** directly.
+If you want to build a standalone executable, you have to use **CMake** directly.
 The preferred way **CMake** is meant to be used, is by setting up an "out of
-source" build. So in order to build our standalone executable, we have to follow
+source" build. So in order to build your standalone executable, you have to follow
 these steps:
 
     qiskit-aer$ mkdir out
@@ -488,8 +524,8 @@ option):
 ***Advanced options***
 
 Because the standalone version of `Aer` doesn't need Python at all, the build system is
-based on CMake, just like most of other C++ projects. So in order to pass all the different
-options we have on `Aer` to CMake we use it's native mechanism:
+based on CMake, just like most of other C++ projects. So to pass all the different
+options we have on `Aer` to CMake, we use its native mechanism:
 
     qiskit-aer/out$ cmake -DCMAKE_CXX_COMPILER=g++-9 -DAER_BLAS_LIB_PATH=/path/to/my/blas ..
 
@@ -499,7 +535,7 @@ options we have on `Aer` to CMake we use it's native mechanism:
 
 #### <a name="win-dependencies"> Dependencies </a>
 
-On Windows, you must have *Anaconda3* installed. We recommend also installing
+On Windows, you must have *Anaconda3* installed. We also recommend installing
 *Visual Studio 2017 Community Edition* or *Visual Studio 2019 Community Edition*.
 
 >*Anaconda 3* can be installed from their web:
@@ -518,22 +554,22 @@ create an Anaconda virtual environment or activate it if you already have create
 We only support *Visual Studio* compilers on Windows, so if you have others installed in your machine (MinGW, TurboC)
 you have to make sure that the path to the *Visual Studio* tools has precedence over others so that the build system
 can get the correct one.
-There's a (recommended) way to force the build system to use the one you want by using CMake `-G` parameter. Will talk
+There's a (recommended) way to force the build system to use the one you want by using CMake `-G` parameter. We will talk
 about this and other parameters later.
 
 #### <a name="win-build"> Build </a>
 
 **Python extension**
 
-As any other python package, we can install from source code by just running:
+As any other Python package, we can install from source code by just running:
 
     (QiskitDevEnv) qiskit-aer > pip install .
 
 This will build and install `Aer` with the default options which is probably suitable for most of the users.
-There's another pythonic approach to build and install software: build the wheels distributable file.
+There's another Pythonic approach to building and installing software: build the wheels distributable file.
 
 
-   (QiskitDevEnv) qiskit-aer > python ./setup.py bdist_wheel
+    (QiskitDevEnv) qiskit-aer > python ./setup.py bdist_wheel
 
 
 This is also the way we will choose to change default `Aer` behavior by passing parameters to the build system.
@@ -564,11 +600,15 @@ the `dist/` directory, so next step is installing it:
 
     (QiskitDevEnv) qiskit-aer\dist$ pip install -U dist\qiskit_aer*.whl
 
+As we are using *scikit-build* and we need some *Python* dependencies to be present before compiling the C++ code,
+we install those dependencies outside the regular setuptools *mechanism*. If you want to avoid automatic installation
+of these packages set the environment variable DISABLE_DEPENDENCY_INSTALL (ON or 1).
+
 **Standalone Executable**
 
-If we want to build a standalone executable, we have to use **CMake** directly.
+If you want to build a standalone executable, you have to use **CMake** directly.
 The preferred way **CMake** is meant to be used, is by setting up an "out of
-source" build. So in order to build our standalone executable, we have to follow
+source" build. So in order to build our standalone executable, you have to follow
 these steps:
 
     (QiskitDevEnv) qiskit-aer> mkdir out
@@ -587,8 +627,8 @@ option):
 ***Advanced options***
 
 Because the standalone version of `Aer` doesn't need Python at all, the build system is
-based on CMake, just like most of other C++ projects. So in order to pass all the different
-options we have on `Aer` to CMake we use it's native mechanism:
+based on CMake, just like most of other C++ projects. So to pass all the different
+options we have on `Aer` to CMake, we use its native mechanism:
 
     (QiskitDevEnv) qiskit-aer\out> cmake -G "Visual Studio 15 2017" -DAER_BLAS_LIB_PATH=c:\path\to\my\blas ..
 
@@ -596,11 +636,11 @@ options we have on `Aer` to CMake we use it's native mechanism:
 ### Building with GPU support
 
 Qiskit Aer can exploit GPU's horsepower to accelerate some simulations, specially the larger ones.
-GPU access is supported via CUDA® (NVIDIA® chipset), so in order to build with GPU support we need
-to have CUDA® >= 10.1 preinstalled. See install instructions [here](https://developer.nvidia.com/cuda-toolkit-archive)
+GPU access is supported via CUDA® (NVIDIA® chipset), so to build with GPU support, you need
+to have CUDA® >= 11.2 preinstalled. See install instructions [here](https://developer.nvidia.com/cuda-toolkit-archive)
 Please note that we only support GPU acceleration on Linux platforms at the moment.
 
-Once CUDA® is properly installed, we only need to set a flag so the build system knows what to do:
+Once CUDA® is properly installed, you only need to set a flag so the build system knows what to do:
 
 ```
 AER_THRUST_BACKEND=CUDA
@@ -608,27 +648,66 @@ AER_THRUST_BACKEND=CUDA
 
 For example,
 
-    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA --
 
-If we want to specify the CUDA® architecture instead of letting the build system
-auto detect it, we can use the AER_CUDA_ARCH flag (can also be set as an ENV variable
+If you want to specify the CUDA® architecture instead of letting the build system 
+auto detect it, you can use the AER_CUDA_ARCH flag (can also be set as an ENV variable
 with the same name, although the flag takes precedence). For example:
 
-    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DAER_CUDA_ARCH="5.2"
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DAER_CUDA_ARCH="7.0" --
 
 or
 
-    qiskit-aer$ export AER_CUDA_ARCH="5.2"
-    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA
+    qiskit-aer$ export AER_CUDA_ARCH="7.0"
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA --
 
 This will reduce the amount of compilation time when, for example, the architecture auto detection
 fails and the build system compiles all common architectures.
 
 Few notes on GPU builds:
 1. Building takes considerable more time than non-GPU build, so be patient :)
-2. CUDA® >= 10.1 imposes the restriction of building with g++ version not newer than 8
+2. CUDA® >= 11.2 imposes the restriction of building with g++ version not newer than 8
 3. We don't need NVIDIA® drivers for building, but we need them for running simulations
 4. Only Linux platforms are supported
+
+Qiskit Aer now supports cuQuantum optimized Quantum computing APIs from NVIDIA®.
+cuStateVec APIs can be exploited to accelerate statevector, density_matrix and unitary methods.
+cuTensorNet APIs can be exploited to tensor_network merthod.
+This implementation requires CUDA® toolkit version 11.2 or higher and Volta or Ampare architecture GPUs.
+
+Before building Qiskit Aer with cuQuantum support, install required components via pip install as following.
+
+    qiskit-aer$ pip install nvidia-cuda-runtime-cu11 nvidia-cublas-cu11 nvidia-cusolver-cu11 nvidia-cusparse-cu11 cuquantum-cu11
+
+This example is for CUDA 11. Please replace cu11 to cu12 if your system has CUDA 12.
+
+Then to build with cuQuantum support, set the value `AER_PYTHON_CUDA_ROOT=<root of Python env>` as following example.
+
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DAER_PYTHON_CUDA_ROOT=qiskit-aer-venv --
+
+
+If you want to link cuQuantum library statically, cuQuantum SDK and cuTENSOR should be installed in your system from NVIDIA®.
+Then set `CUQUANTUM_ROOT` `CUTENSOR_ROOT` and `CUQUANTUM_STATIC` to setup.py. 
+
+For example,
+
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_THRUST_BACKEND=CUDA -DCUQUANTUM_ROOT=path_to_cuQuantum -DCUTENSOR_ROOT=path_to_cuTENSOR -DAER_ENABLE_CUQUANTUM=true -DCUQUANTUM_STATIC=true --
+
+
+To run with cuStateVec, set `device='GPU'` to AerSimulator option and set `cuStateVec_enable=True` to option in execute method.
+
+```
+sim = AerSimulator(method='statevector', device='GPU')
+results = execute(circuit,sim,cuStateVec_enable=True).result()
+```
+
+Also you can accelrate density matrix and unitary matrix simulations as well.
+```
+sim = AerSimulator(method='density_matrix', device='GPU')
+results = execute(circuit,sim,cuStateVec_enable=True).result()
+```
+
+
 
 ### Building with MPI support
 
@@ -639,14 +718,8 @@ To use MPI support, any MPI library (i.e. OpenMPI) should be installed and confi
 Qiskit Aer supports MPI both with and without GPU support. Currently following simulation methods are supported to be parallelized by MPI.
 
  - statevector
- - statevector_thrust_gpu
- - statevector_thrust_cpu
  - density_matrix
- - density_matrix_thrust_gpu
- - density_matrix_thrust_cpu
- - unitary_cpu
- - unitary_thrust_gpu
- - unitary_thrust_cpu
+ - unitary
 
 To enable MPI support, the following flag is needed for build system based on CMake.
 
@@ -666,7 +739,7 @@ AER_DISABLE_GDR=True
 
 For example,
 
-    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_MPI=True -DAER_DISABLE_GDR=True
+    qiskit-aer$ python ./setup.py bdist_wheel -- -DAER_MPI=True -DAER_DISABLE_GDR=True --
 
 ### Running with multiple-GPUs and/or multiple nodes
 
@@ -681,7 +754,10 @@ This technique allows applying quantum gates to each chunk independently without
 Before the actual simulation, we apply transpilation to remap the input circuits to the equivalent circuits that has all the quantum gates on the lower qubits than the chunk's number of qubits.
 And the (noiseless) swap gates are inserted to exchange data. 
 
+Please refer to this paper (https://arxiv.org/abs/2102.02957) for more detailed algorithm and implementation of parallel simulation.
+
 So to simulate by using multiple GPUs or multiple nodes on the cluster, following configurations should be set to backend options.
+(If there is not enough memory to simulate the input circuit, Qiskit Aer automatically set following options, but it is recommended to explicitly set them)
 
  - blocking_enable
 
@@ -694,10 +770,10 @@ So to simulate by using multiple GPUs or multiple nodes on the cluster, followin
 Here is an example how we parallelize simulation with multiple GPUs.
 
 ```
+sim = AerSimulator(method='statevector', device='GPU')
 circ = transpile(QuantumVolume(qubit, 10, seed = 0))
 circ.measure_all()
-qobj = assemble(circ, shots=shots)
-result = sim.run(qobj, backend_options={"method" : "statevector_gpu", "blocking_enable" : True, "blocking_qubits" : 23}).result()
+result = execute(circ, sim, shots=100, blocking_enable=True, blocking_qubits=23).result()
 ```
 
 To run Qiskit Aer with Python script with MPI parallelization, MPI executer such as mpirun should be used to submit a job on the cluster. Following example shows how to run Python script using 4 processes by using mpirun.
@@ -716,10 +792,21 @@ Following metadatas are useful to find on which process is this script running.
 Here is an example how to get my rank.
 
 ```
-result = sim.run(qobj, backend_options={"method" : "statevector_gpu", "blocking_enable" : True, "blocking_qubits" : 23}).result()
+sim = AerSimulator(method='statevector', device='GPU')
+result = execute(circuit, sim, blocking_enable=True, blocking_qubits=23).result()
 dict = result.to_dict()
 meta = dict['metadata']
 myrank = meta['mpi_rank']
+```
+
+
+Multiple shots are also distributed to multiple nodes when setting `device=GPU` and `batched_shots_gpu=True`. The results are distributed to each processes.
+
+
+Note : In the script, make sure that the same random seed should be used for all processes so that the consistent circuits and parameters are passed to Qiskit Aer. To do so add following option to the script.
+```
+from qiskit.utils import algorithm_globals
+algorithm_globals.random_seed = consistent_seed_to_all_processes
 ```
 
 
@@ -800,7 +887,7 @@ pass them right after ``-D`` CMake argument. Example:
 qiskit-aer/out$ cmake -DUSEFUL_FLAG=Value ..
 ```
 
-In the case of building the Qiskit python extension, you have to pass these flags after writing
+In the case of building the Qiskit Python extension, you have to pass these flags after writing
 ``--`` at the end of the python command line, eg:
 
 ```
@@ -820,8 +907,7 @@ These are the flags:
 * AER_BLAS_LIB_PATH
 
     Tells CMake the directory to look for the BLAS library instead of the usual paths.
-    If no BLAS library is found under that directory, CMake will raise an error and stop.
-
+    If no BLAS library is found under that directory, CMake will raise an error and terminate.
     It can also be set as an ENV variable with the same name, although the flag takes precedence.
 
     Values: An absolute path.
@@ -847,8 +933,8 @@ These are the flags:
 
 * AER_THRUST_BACKEND
 
-    We use Thrust library for GPU support through CUDA. If we want to build a version of `Aer` with GPU acceleration, we need to install CUDA and set this variable to the value: "CUDA".
-    There are other values that will use different CPU methods depending on the kind of backend we want to use:
+    We use Thrust library for GPU support through CUDA. If you want to build a version of `Aer` with GPU acceleration, you need to install CUDA and set this variable to the value: "CUDA".
+    There are other values that will use different CPU methods depending on the kind of backend you want to use:
     - "OMP": For OpenMP support
     - "TBB": For Intel Threading Building Blocks
 
@@ -858,7 +944,7 @@ These are the flags:
 
 * AER_CUDA_ARCH
 
-    This flag allows us we to specify the CUDA architecture instead of letting the build system auto detect it.
+    This flag allows you to specify the CUDA architecture instead of letting the build system auto detect it.
     It can also be set as an ENV variable with the same name, although the flag takes precedence.
 
     Values:  Auto | Common | All | List of valid CUDA architecture(s).
@@ -908,13 +994,13 @@ These are the flags:
 
 ## Tests
 
-Code contribution are expected to include tests that provide coverage for the
+Code contributions are expected to include tests that provide coverage for the
 changes being made.
 
 We have two types of tests in the codebase: Qiskit Terra integration tests and
 Standalone integration tests.
 
-For Qiskit Terra integration tests, you first need to build and install the Qiskit python extension, and then run `unittest` Python framework.
+For Qiskit Terra integration tests, you first need to build and install the Qiskit Python extension, and then run `unittest` Python framework.
 
 ```
 qiskit-aer$ pip install .
@@ -923,7 +1009,7 @@ qiskit-aer$ stestr run
 
 Manual for `stestr` can be found [here](https://stestr.readthedocs.io/en/latest/MANUAL.html#).
 
-The integration tests for Qiskit python extension are included in: `test/terra`.
+The integration tests for Qiskit Python extension are included in: `test/terra`.
 
 ## C++ Tests
 
@@ -952,17 +1038,17 @@ corresponding tests to verify this compatibility.
 
 ## Debug
 
-We have to build in debug mode if we want to start a debugging session with tools like `gdb` or `lldb`.
-In order to create a Debug build for all platforms, we just need to pass a parameter while invoking the build to
+You have to build in debug mode if you want to start a debugging session with tools like `gdb` or `lldb`.
+To create a Debug build for all platforms, you just need to pass a parameter while invoking the build to
 create the wheel file:
 
     qiskit-aer$> python ./setup.py bdist_wheel --build-type=Debug
 
-If you want to debug the standalone executable, then the parameter changes to:
+If you want to debug the standalone executable, the parameter changes to:
 
     qiskit-aer/out$> cmake -DCMAKE_BUILD_TYPE=Debug
 
-There are three different build configurations: `Release`, `Debug`, and `Release with Debug Symbols`, which parameters are:
+There are three different build configurations: `Release`, `Debug`, and `Release with Debug Symbols`, whose parameters are:
 `Release`, `Debug`, `RelWithDebInfo` respectively.
 
 We recommend building in verbose mode and dump all the output to a file so it's easier to inspect possible build issues:
@@ -976,7 +1062,7 @@ On Windows:
     qisikt-aer> set VERBOSE=1
     qiskit-aer> python ./setup.py bdist_wheel --build-type=Debug 1> build.log 2>&1
 
-We encourage to always send the whole `build.log` file when reporting a build issue, otherwise we will ask for it :)
+We encourage you to always send the whole `build.log` file when reporting a build issue, otherwise we will ask for it :)
 
 
 **Stepping through the code**
@@ -986,9 +1072,9 @@ Standalone version doesn't require anything special, just use your debugger like
     qiskit-aer/out/Debug$ gdb qasm_simulator
 
 Stepping through the code of a Python extension is another story, trickier, but possible. This is because Python interpreters
-usually load Python extensions dynamically, so we need to start debugging the python interpreter and set our breakpoints ahead of time, before any of our python extension symbols are loaded into the process.
+usually load Python extensions dynamically, so we need to start debugging the Python interpreter and set our breakpoints ahead of time, before any of our Python extension symbols are loaded into the process.
 
-Once built and installed we have to run the debugger with the python interpreter:
+Once built and installed, we have to run the debugger with the Python interpreter:
 
     $ lldb python
 
@@ -1004,9 +1090,9 @@ Then we have to set our breakpoints:
     Breakpoint 1: no locations (pending).
     WARNING:  Unable to resolve breakpoint to any actual locations.
 
-Here the message is clear, it can't find the function: `AER::controller_execute` because our python extension hasn't been loaded yet
- by the python interpreter, so it's "on-hold" hoping to find the function later in the execution.
-Now we can run the python interpreter and pass the arguments (the python file to execute):
+Here the message is clear, it can't find the function: `AER::controller_execute` because our Python extension hasn't been loaded yet
+ by the Python interpreter, so it's "on-hold" hoping to find the function later in the execution.
+Now we can run the Python interpreter and pass the arguments (the python file to execute):
 
     (lldb) r test_qiskit_program.py
     Process 24896 launched: '/opt/anaconda3/envs/aer37/bin/python' (x86_64)
@@ -1025,3 +1111,28 @@ Now we can run the python interpreter and pass the arguments (the python file to
     Target 0: (python) stopped.
 
 After this, you can step through the code and continue with your debug session as always.
+
+
+## Dealing with the git blame ignore list
+
+In the qiskit-aer repository we maintain a list of commits for git blame to
+ignore. This is mostly commits that are code style changes that don't change
+the functionality but just change the code formatting (for example, when we
+migrated to use black for code formatting). This file, `.git-blame-ignore-revs`
+just contains a list of commit SHA1s you can tell git to ignore when using the
+`git blame` command. This can be done one time with something like
+
+```
+git blame --ignore-revs-file .git-blame-ignore-revs qiskit/version.py
+
+```
+
+from the root of the repository. If you'd like to enable this by default you
+can update your local repository's configuration with:
+
+```
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+which will update your local repositories configuration to use the ignore list
+by default.
