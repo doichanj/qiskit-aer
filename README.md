@@ -23,16 +23,10 @@ To install from source, follow the instructions in the [contribution guidelines]
 In order to install and run the GPU supported simulators on Linux, you need CUDA&reg; 11.2 or newer previously installed.
 CUDA&reg; itself would require a set of specific GPU drivers. Please follow CUDA&reg; installation procedure in the NVIDIA&reg; [web](https://www.nvidia.com/drivers).
 
-If you want to install our GPU supported simulators, you have to install one of the following packages:
+If you want to install our GPU supported simulators, you have to install this other package:
 
-If your system has CUDA&reg; 11 installed:
 ```bash
-pip install qiskit-aer-gpu-cu11
-```
-
-If your system has CUDA&reg; 12 installed:
-```bash
-pip install qiskit-aer-gpu-cu12
+pip install qiskit-aer-gpu
 ```
 
 The package above is for CUDA&reg 12, so if your system has CUDA&reg; 11 installed, install separate package:
@@ -106,7 +100,7 @@ Now you're set up and ready to check out some of the other examples from our
 ## Authors and Citation
 
 Qiskit Aer is the work of [many people](https://github.com/Qiskit/qiskit-aer/graphs/contributors) who contribute
-to the project at different levels. If you use Qiskit, please cite as per the included [BibTeX file](https://github.com/Qiskit/qiskit/blob/master/Qiskit.bib).
+to the project at different levels. If you use Qiskit, please cite as per the included [BibTeX file](https://github.com/Qiskit/qiskit-terra/blob/main/CITATION.bib).
 
 ## License
 

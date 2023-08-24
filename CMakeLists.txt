@@ -418,8 +418,11 @@ set(AER_COMPILER_DEFINITIONS ${AER_COMPILER_DEFINITIONS} ${CONAN_DEFINES})
 if(SKBUILD) # Terra Addon build
 	set(AER_LIBRARIES ${AER_LIBRARIES} AER_DEPENDENCY_PKG::muparserx)
 	add_subdirectory(qiskit_aer/backends/wrappers)
-	add_subdirectory(src/open_pulse)
 else() # Standalone build
+	set(AER_LIBRARIES
+		${AER_LIBRARIES}
+		${THRUST_DEPENDANT_LIBS}
+		${MPI_DEPENDANT_LIBS})
 
 	function(build_cuda target src_file is_exec)
 		if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64" OR CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "amd64")
