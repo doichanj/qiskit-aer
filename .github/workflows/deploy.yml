@@ -87,10 +87,8 @@ jobs:
         name: Install Python
         with:
           python-version: '3.8'
-      - name: Update pip
-        run: pip install --upgrade pip
       - name: Install Deps
-        run: pip install -U skbuild wheel
+        run: pip install -U scikit-build wheel
       - name: Build Artifacts
         run: |
           python setup.py sdist
