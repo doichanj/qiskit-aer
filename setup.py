@@ -9,7 +9,7 @@ import platform
 import setuptools
 from skbuild import setup
 
-PACKAGE_NAME = os.getenv("QISKIT_AER_PACKAGE_NAME", "doichan-test-qiskit-aer")
+PACKAGE_NAME = os.getenv("QISKIT_AER_PACKAGE_NAME", "qiskit-aer")
 CUDA_MAJOR = os.getenv("QISKIT_AER_CUDA_MAJOR", "12")
 
 # Allow build without the CUDA requirements. This is useful in case one intends to use a CUDA that exists in the host system.
