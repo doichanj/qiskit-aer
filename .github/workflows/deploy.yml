@@ -57,7 +57,7 @@ jobs:
         env:
           CIBW_BEFORE_ALL_LINUX: "yum install -y https://dl.fedoraproject.org/pub/epel/7/aarch64/Packages/e/epel-release-7-12.noarch.rpm && yum install -y openblas-devel"
           CIBW_ARCHS_LINUX: aarch64
-          CIBW_TEST_SKIP: "cp39* cp310* cp311*"
+          CIBW_TEST_SKIP: "cp38* cp39* cp310* cp311*"
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
@@ -94,9 +94,10 @@ jobs:
         run: pip install -U twine
       - uses: actions/download-artifact@v2
         with:
-          path: ./wheelhouse/*
+          path: deploy
+          name: publish-shared-wheels
       - name: Publish to PyPi from wheelhouse
         env:
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
           TWINE_USERNAME: doichan
-        run: twine upload --repository testpypi wheelhouse/*.whl
+        run: twine upload --repository testpypi deploy/*.whl
