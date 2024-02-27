@@ -666,15 +666,25 @@ void State<statevec_t>::apply_save_amplitudes(const Operations::Op &op,
   const int_t size = op.int_params.size();
   if (op.type == Operations::OpType::save_amps) {
     Vector<complex_t> amps(size, false);
-    for (int_t i = 0; i < size; ++i) {
-      amps[i] = BaseState::qreg_.get_state(op.int_params[i]);
+    if (BaseState::threads_ > 1 && size > (1ull << omp_qubit_threshold_)) {
+#pragma omp parallel for num_threads(BaseState::threads_)
+      for (int_t i = 0; i < size; ++i)
+        amps[i] = BaseState::qreg_.get_state(op.int_params[i]);
+    } else {
+      for (int_t i = 0; i < size; ++i)
+        amps[i] = BaseState::qreg_.get_state(op.int_params[i]);
     }
     result.save_data_pershot(BaseState::creg(), op.string_params[0],
                              std::move(amps), op.type, op.save_type);
   } else {
     rvector_t amps_sq(size, 0);
-    for (int_t i = 0; i < size; ++i) {
-      amps_sq[i] = BaseState::qreg_.probability(op.int_params[i]);
+    if (BaseState::threads_ > 1 && size > (1ull << omp_qubit_threshold_)) {
+#pragma omp parallel for num_threads(BaseState::threads_)
+      for (int_t i = 0; i < size; ++i)
+        amps_sq[i] = BaseState::qreg_.probability(op.int_params[i]);
+    } else {
+      for (int_t i = 0; i < size; ++i)
+        amps_sq[i] = BaseState::qreg_.probability(op.int_params[i]);
     }
     result.save_data_average(BaseState::creg(), op.string_params[0],
                              std::move(amps_sq), op.type, op.save_type);

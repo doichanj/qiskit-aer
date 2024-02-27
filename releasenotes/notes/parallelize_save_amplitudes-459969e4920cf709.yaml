@@ -1,0 +1,6 @@
+---
+upgrade:
+  - |
+    Adding parallelization to save_amplitudes for statevector methods
+    when number of amplitudes to be saved is larger than
+    2^statevector_parallel_threshold option.
