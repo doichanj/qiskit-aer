@@ -27,7 +27,7 @@ jobs:
           CIBW_BEFORE_ALL: ""
           CIBW_BEFORE_BUILD : ""
           CIBW_SKIP: "*-manylinux_i686 pp* cp36* cp37* cp38* cp39* cp310* cp311* *musllinux*"
-          CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit-aer-rocm MAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=ROCM AER_CIBUILD=true ROCM_PATH=~/ROCm
+          CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit-aer-rocm MAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=ROCM AER_CIBUILD=true ROCM_PATH="~/ROCm"
         run: |
           python -m cibuildwheel --output-dir wheelhouse
       - uses: actions/upload-artifact@v3
