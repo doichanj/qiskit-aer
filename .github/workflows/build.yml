@@ -5,15 +5,6 @@ jobs:
   wheel-rocm:
     runs-on: "ubuntu-latest"
     steps:
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 30000
-          swap-size-mb: 1024
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         name: Install Python
@@ -24,8 +15,8 @@ jobs:
           python -m pip install cibuildwheel==2.16.2
       - name: Build wheels
         env:
-          CIBW_BEFORE_ALL: "yum install -y yum-utils wget"
-          CIBW_BEFORE_BUILD : ""
+          CIBW_BEFORE_ALL: "yum install -y yum-utils && curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.rpm.sh | bash && yum install git-lfs && mkdir -p ~/bin/ && curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo && chmod a+x ~/bin/repo && mkdir -p ~/ROCm/
+cd ~/ROCm/ && ~/bin/repo init -u http://github.com/ROCm/ROCm.git -b roc-6.0.x && ~/bin/repo sync"
           CIBW_SKIP: "*-manylinux_i686 pp* cp36* cp37* cp38* cp39* cp310* cp311* *musllinux*"
           CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit-aer-rocm MAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=ROCM AER_CIBUILD=true ROCM_PATH="~/ROCm"
         run: |
