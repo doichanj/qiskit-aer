@@ -1,7 +1,7 @@
 name: Build
-on:
-  push
+on: push
 
+jobs:
   wheel-rocm:
     runs-on: "ubuntu-latest"
     steps:
@@ -24,4 +24,3 @@ cd ~/ROCm/ && ~/bin/repo init -u http://github.com/ROCm/ROCm.git -b roc-6.0.x &&
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
-
