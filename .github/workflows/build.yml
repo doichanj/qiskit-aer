@@ -15,7 +15,8 @@ jobs:
           python -m pip install cibuildwheel==2.16.2
       - name: Build wheels
         env:
-          CIBW_BEFORE_ALL: "yum install -y yum-utils && yum install git-lfs && mkdir -p ~/bin/"
+          CIBW_BEFORE_ALL: "mkdir -p ~/bin/ && curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo && chmod a+x ~/bin/repo && mkdir -p ~/ROCm/
+cd ~/ROCm/ && ~/bin/repo init -u http://github.com/ROCm/ROCm.git -b roc-6.0.x && ~/bin/repo sync"
           CIBW_SKIP: "*-manylinux_i686 pp* cp36* cp37* cp38* cp39* cp310* cp311* *musllinux*"
           CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit-aer-rocm MAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=ROCM AER_CIBUILD=true ROCM_PATH="~/ROCm"
         run: |
