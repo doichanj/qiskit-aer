@@ -15,10 +15,9 @@ jobs:
           python -m pip install cibuildwheel==2.16.2
       - name: Build wheels
         env:
-          CIBW_BEFORE_ALL: "yum install -y yum-utils openssh-clients git-lfs openblas-devel clang && mkdir -p ~/bin/ && curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo && chmod a+x ~/bin/repo && mkdir -p ~/ROCm/
-cd ~/ROCm/ && ~/bin/repo init -u http://github.com/ROCm/ROCm.git -b roc-6.0.x && ~/bin/repo sync"
+          CIBW_BEFORE_ALL: "yum install -y yum-utils openssh-clients git-lfs openblas-devel clang && yum install https://repo.radeon.com/amdgpu-install/6.0.2/rhel/8.8/amdgpu-install-6.0.60002-1.el8.noarch.rpm && yum clean all && yum install amdgpu-dkms && yum install rocm"
           CIBW_SKIP: "*-manylinux_i686 pp* cp36* cp37* cp38* cp39* cp310* cp311* *musllinux*"
-          CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit-aer-rocm MAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=ROCM AER_CIBUILD=true ROCM_PATH="~/ROCm" CMAKE_CXX_COMPILER="~/ROCm/llvm/bin/clang++"
+          CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit-aer-rocm MAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=ROCM AER_CIBUILD=true ROCM_PATH=/opt/rocm CMAKE_CXX_COMPILER=/opt/rocm/bin/clang++
         run: |
           python -m cibuildwheel --output-dir wheelhouse
       - uses: actions/upload-artifact@v3
