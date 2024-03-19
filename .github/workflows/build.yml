@@ -15,7 +15,7 @@ jobs:
           python -m pip install cibuildwheel==2.16.2
       - name: Build wheels
         env:
-          CIBW_BEFORE_ALL: "yum install -y yum-utils openssh-clients git-lfs openblas-devel clang && yum install -y https://repo.radeon.com/amdgpu-install/6.0.2/rhel/8.8/amdgpu-install-6.0.60002-1.el8.noarch.rpm && yum clean all && yum install -y amdgpu-dkms && yum install -y rocm"
+          CIBW_BEFORE_ALL: "yum install -y yum-utils openssh-clients git-lfs openblas-devel clang && wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && rpm -ivh epel-release-latest-8.noarch.rpm && crb enable && yum install -y https://repo.radeon.com/amdgpu-install/6.0.2/rhel/8.8/amdgpu-install-6.0.60002-1.el8.noarch.rpm && yum clean all && yum install -y amdgpu-dkms && yum install -y rocm"
           CIBW_SKIP: "*-manylinux_i686 pp* cp36* cp37* cp38* cp39* cp310* cp311* *musllinux*"
           CIBW_ENVIRONMENT: QISKIT_AER_PACKAGE_NAME=qiskit-aer-rocm MAKE_VERBOSE_MAKEFILE=true AER_THRUST_BACKEND=ROCM AER_CIBUILD=true ROCM_PATH="/opt/rocm" CMAKE_CXX_COMPILER="/opt/rocm/bin/clang++"
         run: |
