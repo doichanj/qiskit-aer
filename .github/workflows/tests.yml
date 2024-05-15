@@ -3,7 +3,6 @@ on: push
 jobs:
   sdist:
     runs-on: ${{ matrix.platform.os }}
-    needs: ["lint"]
     strategy:
       matrix:
         python-version: ["3.10"]
