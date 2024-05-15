@@ -511,6 +511,12 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
                              waiting_branches.begin() + num_states);
     }
 
+    std::cout << " start branches = " << branches.size() << " : ";
+    for(int_t k=0;k<branches.size();k++){
+      std::cout << ", " << branches[k]->num_shots();
+    }
+    std::cout << std::endl;
+
     while (num_active_states > 0) { // loop until all branches execute all ops
       // functor for ops execution
       auto apply_ops_func = [this, &branches, &noise, &par_results, measure_seq,
@@ -577,7 +583,7 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
 
       // apply ops until some branch operations are executed in some branches
       uint_t nbranch = Utils::apply_omp_parallel_for_reduction_int(
-          (par_shots > 1 && branches.size() > 1 && shot_omp_parallel_), 0,
+          false, 0,
           par_shots, apply_ops_func, par_shots);
 
       // repeat until new branch is available
