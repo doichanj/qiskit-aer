@@ -552,8 +552,17 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
             }
 
             if (branches[istate]->num_branches() > 0) {
+              std::cout << " branch on : " << op->type << " - " << *op << std::endl;
+              std::cout << branches[istate]->num_branches() << " branches";
+              for(int_t k=0;k<branches[istate]->num_branches();k++){
+                std::cout << ", " << branches[istate]->branches()[k]->num_shots();
+              }
+              std::cout << std::endl;
+
               branches[istate]->remove_empty_branches();
               state.creg() = branches[istate]->creg();
+
+              std::cout << " ops after branch : " << branches[istate]->additional_ops() << std::endl;
 
               // if there are some branches still remaining
               if (branches[istate]->num_branches() > 0) {
@@ -568,7 +577,7 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
 
       // apply ops until some branch operations are executed in some branches
       uint_t nbranch = Utils::apply_omp_parallel_for_reduction_int(
-          (par_shots > 1 && branches.size() > 1 && shot_omp_parallel_), 0,
+          false, 0,
           par_shots, apply_ops_func, par_shots);
 
       // repeat until new branch is available
