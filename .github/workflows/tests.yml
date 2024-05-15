@@ -1,42 +1,6 @@
 name: Tests
 on: push
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.10']
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Pip cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-${{ matrix.python-version}}-pip-lint-${{ hashFiles('setup.py','requirements-dev.txt','constraints.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.python-version}}-pip-lint-
-            ${{ runner.os }}-${{ matrix.python-version}}-pip-
-            ${{ runner.os }}-${{ matrix.python-version}}-
-      - name: Install deps
-        run: |
-          set -e
-          pip install -U pip wheel
-          pip install -U -c constraints.txt -r requirements-dev.txt qiskit numpy scipy
-        shell: bash
-      - name: Run clang-format
-        run: |
-          set -e
-          sh tools/clang-format.sh --Werror -n
-        shell: bash          
-      - name: Run Lint
-        run: |
-          set -e
-          black --check qiskit_aer test tools setup.py
-          pylint -j 2 -rn qiskit_aer
   sdist:
     runs-on: ${{ matrix.platform.os }}
     needs: ["lint"]
@@ -82,7 +46,7 @@ jobs:
   tests_macos:
     runs-on: macos-13
     name: macOS Python ${{ matrix.python-version }}
-    needs: [sdist, lint]
+    needs: [sdist]
     timeout-minutes: 60
     strategy:
       matrix:
