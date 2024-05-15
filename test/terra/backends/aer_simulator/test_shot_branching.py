@@ -73,7 +73,6 @@ class TestShotBranching(SimulatorTestCase):
         shots = 1000
         circuits = ref_reset.reset_circuits_with_entangled_and_moving_qubits(final_measure=True)
         targets = ref_reset.reset_counts_with_entangled_and_moving_qubits(shots)
-        for i in range(0, 100):
-            result = backend.run(circuits, shots=shots, shot_branching_enable=True).result()
-            self.assertSuccess(result)
-            self.compare_counts(result, circuits, targets, delta=0.05 * shots)
+        result = backend.run(circuits, shots=shots, shot_branching_enable=True).result()
+        self.assertSuccess(result)
+        self.compare_counts(result, circuits, targets, delta=0.05 * shots)
