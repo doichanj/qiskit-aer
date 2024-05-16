@@ -307,6 +307,7 @@ void MultiStateExecutor<state_t>::run_circuit_shots(
     par_shots =
         std::min((int_t)Base::parallel_shots_, (int_t)num_local_states_);
   }
+      par_shots = 1;
   shot_branch_parallel_ = Base::parallel_shots_ / par_shots;
 
   std::vector<std::vector<ExperimentResult>> par_results(par_shots);
