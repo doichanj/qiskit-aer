@@ -548,17 +548,10 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
             } else if (op->has_bind_params) {
               // runtime parameterizaion
               apply_runtime_parameterization(*branches[istate], *op);
-            } else {
-              if (!apply_branching_op(*branches[istate], *op,
+            } else if (apply_branching_op(*branches[istate], *op,
                                       par_results[i].begin(),
                                       (op + 1 == last))) {
-                state.apply_op(*op, par_results[i][0], dummy_rng,
-                               (op + 1 == last));
-              }
-            }
-
-            if (branches[istate]->num_branches() > 0) {
-              std::cout << " branch on : " << op->type << " - " << *op << std::endl;
+              std::cout << " branch " << istate << " on : " << op->type << " - " << *op << std::endl;
               std::cout << branches[istate]->num_branches() << " branches";
               for(int_t k=0;k<branches[istate]->num_branches();k++){
                 std::cout << ", " << branches[istate]->branches()[k]->num_shots();
@@ -577,6 +570,9 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
                 nbranch += branches[istate]->num_branches();
                 break;
               }
+            } else {
+              state.apply_op(*op, par_results[i][0], dummy_rng,
+               (op + 1 == last));
             }
           }
         }
