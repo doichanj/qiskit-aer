@@ -512,12 +512,6 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
                              waiting_branches.begin() + num_states);
     }
 
-    std::cout << " start branches = " << branches.size() << " : ";
-    for(int_t k=0;k<branches.size();k++){
-      std::cout << ", " << branches[k]->num_shots();
-    }
-    std::cout << std::endl;
-
     while (num_active_states > 0) { // loop until all branches execute all ops
       // functor for ops execution
       auto apply_ops_func = [this, &branches, &noise, &par_results, measure_seq,
@@ -552,19 +546,8 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
             } else if (apply_branching_op(*branches[istate], *op,
                                       par_results[i].begin(),
                                       (op + 1 == last))) {
-              std::cout << " branch " << istate << " on : " << op->type << " - " << *op << std::endl;
-              std::cout << branches[istate]->num_branches() << " branches";
-              for(int_t k=0;k<branches[istate]->num_branches();k++){
-                std::cout << ", " << branches[istate]->branches()[k]->num_shots();
-              }
-              std::cout << std::endl;
-
               branches[istate]->remove_empty_branches();
               state.creg() = branches[istate]->creg();
-
-              std::cout << " ops after branch : " << branches[istate]->additional_ops() << std::endl;
-              std::cout << state.creg().creg_memory() << " : " << state.creg().creg_register() << std::endl;
-              std::cout << " ==== "  << std::endl;
 
               // if there are some branches still remaining
               if (branches[istate]->num_branches() > 0) {
