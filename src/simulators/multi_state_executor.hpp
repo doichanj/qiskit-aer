@@ -343,7 +343,7 @@ void MultiStateExecutor<state_t>::run_circuit_shots(
       }
     }
   };
-  Utils::apply_omp_parallel_for((par_shots > 1) & false, 0, par_shots,
+  Utils::apply_omp_parallel_for((par_shots > 1), 0, par_shots,
                                 parallel_shot_branching, par_shots);
 
   // gather cregs on MPI processes and save to result
