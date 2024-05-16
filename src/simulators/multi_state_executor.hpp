@@ -343,7 +343,7 @@ void MultiStateExecutor<state_t>::run_circuit_shots(
       }
     }
   };
-  Utils::apply_omp_parallel_for((par_shots > 1), 0, par_shots,
+  Utils::apply_omp_parallel_for((par_shots > 1) & false, 0, par_shots,
                                 parallel_shot_branching, par_shots);
 
   // gather cregs on MPI processes and save to result
@@ -569,6 +569,8 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
               state.creg() = branches[istate]->creg();
 
               std::cout << " ops after branch : " << branches[istate]->additional_ops() << std::endl;
+              std::cout << state.creg().creg_memory() << " : " << state.creg().creg_register() << std::endl;
+              std::cout << " ==== "  << std::endl;
 
               // if there are some branches still remaining
               if (branches[istate]->num_branches() > 0) {
@@ -583,7 +585,7 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
 
       // apply ops until some branch operations are executed in some branches
       uint_t nbranch = Utils::apply_omp_parallel_for_reduction_int(
-          false, 0,
+          (par_shots > 1 && branches.size() > 1 && shot_omp_parallel_), 0,
           par_shots, apply_ops_func, par_shots);
 
       // repeat until new branch is available
