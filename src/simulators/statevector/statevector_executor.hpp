@@ -1549,6 +1549,7 @@ void Executor<state_t>::measure_reset_update(CircuitExecutor::Branch &root,
 
       Operations::Op op;
       op.type = OpType::diagonal_matrix;
+      op.name = "diagonal_matrix";
       op.qubits = qubits;
       op.params = mdiag;
       root.branches()[i]->add_op_after_branch(op);
@@ -1572,6 +1573,7 @@ void Executor<state_t>::measure_reset_update(CircuitExecutor::Branch &root,
 
       Operations::Op op;
       op.type = OpType::diagonal_matrix;
+      op.name = "diagonal_matrix";
       op.qubits = qubits;
       op.params = mdiag;
       root.branches()[i]->add_op_after_branch(op);
@@ -1655,7 +1657,7 @@ void Executor<state_t>::apply_initialize(CircuitExecutor::Branch &root,
       op.type = OpType::initialize;
       op.name = "initialize";
       op.qubits = qubits;
-      op.params = params;
+      op.params = params_in;
       for (uint_t i = 0; i < root.num_branches(); i++) {
         root.branches()[i]->add_op_after_branch(op);
         root.branches()[i]->initialize_after_reset() = true;
@@ -1664,8 +1666,8 @@ void Executor<state_t>::apply_initialize(CircuitExecutor::Branch &root,
               // branching in reset
     }
   }
-
   Base::states_[root.state_index()].qreg().initialize_component(qubits, params);
+  root.initialize_after_reset() = false;
 }
 
 template <class state_t>

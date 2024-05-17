@@ -1382,6 +1382,7 @@ void Executor<state_t>::measure_reset_update(CircuitExecutor::Branch &root,
 
       Operations::Op op;
       op.type = OpType::diagonal_matrix;
+      op.name = "diagonal_matrix";
       op.qubits = qubits;
       op.params = mdiag;
       root.branches()[i]->add_op_after_branch(op);
@@ -1405,6 +1406,7 @@ void Executor<state_t>::measure_reset_update(CircuitExecutor::Branch &root,
 
       Operations::Op op;
       op.type = OpType::diagonal_matrix;
+      op.name = "diagonal_matrix";
       op.qubits = qubits;
       op.params = mdiag;
       root.branches()[i]->add_op_after_branch(op);
