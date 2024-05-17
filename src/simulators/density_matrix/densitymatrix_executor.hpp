@@ -455,7 +455,7 @@ bool Executor<state_t>::apply_branching_op(CircuitExecutor::Branch &root,
                                            const Operations::Op &op,
                                            ResultItr result, bool final_op) {
   RngEngine dummy;
-  if (root.creg().check_conditional(op)) {
+  if (Base::states_[root.state_index()].creg().check_conditional(op)) {
     switch (op.type) {
       // ops with branching
       //      case Operations::OpType::reset:
@@ -807,7 +807,7 @@ void Executor<densmat_t>::apply_save_density_matrix(
     uint_t ip = root.param_index(i);
     if (!copied[ip]) {
       (result + ip)
-          ->save_data_average(root.creg(),
+          ->save_data_average(Base::states_[root.state_index()].creg(),
                               op.string_params[0], mat, op.type, op.save_type);
       copied[ip] = true;
     }
@@ -847,7 +847,7 @@ void Executor<densmat_t>::apply_save_state(CircuitExecutor::Branch &root,
       uint_t ip = root.param_index(i);
       if (!copied[ip]) {
         (result + ip)
-            ->save_data_average(root.creg(), key,
+            ->save_data_average(Base::states_[root.state_index()].creg(), key,
                                 state, OpType::save_densmat, save_type);
         copied[ip] = true;
       }
@@ -859,7 +859,7 @@ void Executor<densmat_t>::apply_save_state(CircuitExecutor::Branch &root,
       uint_t ip = root.param_index(i);
       if (!copied[ip]) {
         (result + ip)
-            ->save_data_average(root.creg(), key,
+            ->save_data_average(Base::states_[root.state_index()].creg(), key,
                                 state, OpType::save_densmat, save_type);
         copied[ip] = true;
       }
@@ -883,7 +883,7 @@ void Executor<densmat_t>::apply_save_probs(CircuitExecutor::Branch &root,
       if (!copied[ip]) {
         (result + ip)
             ->save_data_average(
-                root.creg(), op.string_params[0],
+                Base::states_[root.state_index()].creg(), op.string_params[0],
                 Utils::vec2ket(probs, Base::json_chop_threshold_, 16), op.type,
                 op.save_type);
         copied[ip] = true;
@@ -894,7 +894,7 @@ void Executor<densmat_t>::apply_save_probs(CircuitExecutor::Branch &root,
       uint_t ip = root.param_index(i);
       if (!copied[ip]) {
         (result + ip)
-            ->save_data_average(root.creg(),
+            ->save_data_average(Base::states_[root.state_index()].creg(),
                                 op.string_params[0], probs, op.type,
                                 op.save_type);
         copied[ip] = true;
@@ -922,7 +922,7 @@ void Executor<densmat_t>::apply_save_amplitudes(CircuitExecutor::Branch &root,
     uint_t ip = root.param_index(i);
     if (!copied[ip]) {
       (result + ip)
-          ->save_data_average(root.creg(),
+          ->save_data_average(Base::states_[root.state_index()].creg(),
                               op.string_params[0], amps_sq, op.type,
                               op.save_type);
       copied[ip] = true;
@@ -1359,6 +1359,7 @@ Executor<state_t>::sample_measure_with_prob(CircuitExecutor::Branch &root,
   }
 
   // branch shots
+  root.creg() = Base::states_[root.state_index()].creg();
   root.branch_shots(shot_branch, probs.size());
 
   return probs;
@@ -1382,7 +1383,6 @@ void Executor<state_t>::measure_reset_update(CircuitExecutor::Branch &root,
 
       Operations::Op op;
       op.type = OpType::diagonal_matrix;
-      op.name = "diagonal_matrix";
       op.qubits = qubits;
       op.params = mdiag;
       root.branches()[i]->add_op_after_branch(op);
@@ -1406,7 +1406,6 @@ void Executor<state_t>::measure_reset_update(CircuitExecutor::Branch &root,
 
       Operations::Op op;
       op.type = OpType::diagonal_matrix;
-      op.name = "diagonal_matrix";
       op.qubits = qubits;
       op.params = mdiag;
       root.branches()[i]->add_op_after_branch(op);
