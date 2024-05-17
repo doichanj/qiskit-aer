@@ -1782,7 +1782,7 @@ void Executor<state_t>::apply_save_probs(CircuitExecutor::Branch &root,
       if (!copied[ip]) {
         (result + ip)
             ->save_data_average(
-                Base::states_[root.creg(), op.string_params[0],
+                root.creg(), op.string_params[0],
                 Utils::vec2ket(probs, Base::json_chop_threshold_, 16), op.type,
                 op.save_type);
         copied[ip] = true;
