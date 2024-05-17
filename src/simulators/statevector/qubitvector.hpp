@@ -773,10 +773,7 @@ void QubitVector<data_t>::copy_qv(const QubitVector<data_t> &obj) {
   set_num_qubits(obj.num_qubits());
   set_transformer_method();
 
-//  initialize_from_data(obj.data_, obj.data_size_);
-  const int_t END = data_size_; // end for k loop
-  for (int_t k = 0; k < END; ++k)
-    data_[k] = obj.data_[k];
+  initialize_from_data(obj.data_, obj.data_size_);
 
   chunk_index_ = obj.chunk_index_;
   omp_threads_ = obj.omp_threads_;

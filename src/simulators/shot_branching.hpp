@@ -81,9 +81,6 @@ public:
   void set_iterator(OpItr &iter) { iter_ = iter; }
   OpItr op_iterator(void);
 
-  ///
-  std::vector<Operations::Op>& additional_ops(void) { return additional_ops_; }
-  ///
   uint_t num_shots(void) { return shots_.size(); }
   void clear(void) {
     shots_.clear();
