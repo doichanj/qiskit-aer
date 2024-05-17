@@ -536,6 +536,7 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
               continue;
 
             branches[istate]->advance_iterator();
+            branches[istate]->creg() = state.creg();
             if (op->sample_noise) {
               // runtime noise sampling
               branches[istate]->apply_runtime_noise_sampling(state.creg(), *op,
