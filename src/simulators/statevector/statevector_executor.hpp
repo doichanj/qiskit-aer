@@ -388,7 +388,7 @@ bool Executor<state_t>::apply_branching_op(CircuitExecutor::Branch &root,
                                            const Operations::Op &op,
                                            ResultItr result, bool final_op) {
   RngEngine dummy;
-  if (Base::states_[root.state_index()].creg().check_conditional(op)) {
+  if (root.creg().check_conditional(op)) {
     switch (op.type) {
     // ops with branching
     case Operations::OpType::reset:

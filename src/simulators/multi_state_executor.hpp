@@ -704,7 +704,7 @@ void MultiStateExecutor<state_t>::apply_runtime_parameterization(
     Branch &root, const Operations::Op &op) {
   uint_t nparams = root.num_params();
 
-  root.creg() = states_[root.state_index()].creg();
+//  root.creg() = states_[root.state_index()].creg();
   if (nparams == 1) {
     uint_t ip = root.param_index(0);
     Operations::Op bind_op =
