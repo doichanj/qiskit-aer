@@ -495,6 +495,7 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
       uint_t sid = top_state + i;
       waiting_branches[i]->state_index() = sid;
       waiting_branches[i]->set_iterator(first);
+      waiting_branches[i]->creg().initialize(num_creg_memory_, num_creg_registers_);
       branches.push_back(waiting_branches[i]);
 
       // initialize state
