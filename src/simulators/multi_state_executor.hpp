@@ -542,9 +542,16 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
             } else if (op->has_bind_params) {
               // runtime parameterizaion
               apply_runtime_parameterization(*branches[istate], *op);
-            } else if (apply_branching_op(*branches[istate], *op,
+            } else {
+              if (!apply_branching_op(*branches[istate], *op,
                                       par_results[i].begin(),
                                       (op + 1 == last))) {
+                state.apply_op(*op, par_results[i][0], dummy_rng,
+                               (op + 1 == last));
+              }
+            }
+
+            if (branches[istate]->num_branches() > 0) {
               branches[istate]->remove_empty_branches();
               state.creg() = branches[istate]->creg();
 
@@ -553,9 +560,6 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
                 nbranch += branches[istate]->num_branches();
                 break;
               }
-            } else {
-              state.apply_op(*op, par_results[i][0], dummy_rng,
-               (op + 1 == last));
             }
           }
         }
