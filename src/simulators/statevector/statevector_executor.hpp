@@ -1851,7 +1851,7 @@ void Executor<state_t>::apply_save_statevector_dict(
     uint_t ip = root.param_index(i);
     (result + ip)
         ->save_data_pershot(
-            Base::states_[root.creg(), op.string_params[0],
+            root.creg(), op.string_params[0],
             (const std::map<std::string, complex_t> &)result_state_ket, op.type,
             op.save_type);
   }
