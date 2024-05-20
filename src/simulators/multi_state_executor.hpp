@@ -433,7 +433,6 @@ void MultiStateExecutor<state_t>::run_circuit_with_shot_branching(
   waiting_branches.push_back(std::make_shared<Branch>());
   waiting_branches[0]->set_shots(shots_storage);
   waiting_branches[0]->set_iterator(first);
-  waiting_branches[0]->set_param_index(0, 0);
   shots_storage.clear();
 
   std::vector<ExperimentResult> par_results(par_shots);

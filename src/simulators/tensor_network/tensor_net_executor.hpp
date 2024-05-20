@@ -385,16 +385,10 @@ void Executor<state_t>::apply_save_density_matrix(CircuitExecutor::Branch &root,
             op.qubits);
   }
 
-  std::vector<bool> copied(Base::num_bind_params_, false);
   for (uint_t i = 0; i < root.num_shots(); i++) {
-    uint_t ip = root.param_index(i);
-    if (!copied[ip]) {
-      (result + ip)
-          ->save_data_average(Base::states_[root.state_index()].creg(),
+    result->save_data_average(Base::states_[root.state_index()].creg(),
                               op.string_params[0], reduced_state, op.type,
                               op.save_type);
-      copied[ip] = true;
-    }
   }
 }
 
@@ -406,30 +400,19 @@ void Executor<state_t>::apply_save_probs(CircuitExecutor::Branch &root,
   auto probs =
       Base::states_[root.state_index()].qreg().probabilities(op.qubits);
 
-  std::vector<bool> copied(Base::num_bind_params_, false);
   if (op.type == Operations::OpType::save_probs_ket) {
     // Convert to ket dict
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      if (!copied[ip]) {
-        (result + ip)
-            ->save_data_average(
+      result->save_data_average(
                 Base::states_[root.state_index()].creg(), op.string_params[0],
                 Utils::vec2ket(probs, Base::json_chop_threshold_, 16), op.type,
                 op.save_type);
-        copied[ip] = true;
-      }
     }
   } else {
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      if (!copied[ip]) {
-        (result + ip)
-            ->save_data_average(Base::states_[root.state_index()].creg(),
+      result->save_data_average(Base::states_[root.state_index()].creg(),
                                 op.string_params[0], probs, op.type,
                                 op.save_type);
-        copied[ip] = true;
-      }
     }
   }
 }
@@ -449,17 +432,13 @@ void Executor<state_t>::apply_save_statevector(CircuitExecutor::Branch &root,
   if (last_op) {
     const auto v = Base::states_[root.state_index()].move_to_vector();
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      (result + ip)
-          ->save_data_pershot(Base::states_[root.state_index()].creg(), key, v,
+      result->save_data_pershot(Base::states_[root.state_index()].creg(), key, v,
                               OpType::save_statevec, op.save_type);
     }
   } else {
     const auto v = Base::states_[root.state_index()].copy_to_vector();
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      (result + ip)
-          ->save_data_pershot(Base::states_[root.state_index()].creg(), key, v,
+      result->save_data_pershot(Base::states_[root.state_index()].creg(), key, v,
                               OpType::save_statevec, op.save_type);
     }
   }
@@ -480,9 +459,7 @@ void Executor<state_t>::apply_save_statevector_dict(
     result_state_ket[it.first] = it.second;
   }
   for (uint_t i = 0; i < root.num_shots(); i++) {
-    uint_t ip = root.param_index(i);
-    (result + ip)
-        ->save_data_pershot(
+    result->save_data_pershot(
             Base::states_[root.state_index()].creg(), op.string_params[0],
             (const std::map<std::string, complex_t> &)result_state_ket, op.type,
             op.save_type);
@@ -505,9 +482,7 @@ void Executor<state_t>::apply_save_amplitudes(CircuitExecutor::Branch &root,
           Base::states_[root.state_index()].qreg().get_state(op.int_params[i]);
     }
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      (result + ip)
-          ->save_data_pershot(
+      result->save_data_pershot(
               Base::states_[root.state_index()].creg(), op.string_params[0],
               (const Vector<complex_t> &)amps, op.type, op.save_type);
     }
@@ -517,16 +492,10 @@ void Executor<state_t>::apply_save_amplitudes(CircuitExecutor::Branch &root,
       amps_sq[i] = Base::states_[root.state_index()].qreg().probability(
           op.int_params[i]);
     }
-    std::vector<bool> copied(Base::num_bind_params_, false);
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      if (!copied[ip]) {
-        (result + ip)
-            ->save_data_average(Base::states_[root.state_index()].creg(),
+      result->save_data_average(Base::states_[root.state_index()].creg(),
                                 op.string_params[0], amps_sq, op.type,
                                 op.save_type);
-        copied[ip] = true;
-      }
     }
   }
 }

@@ -802,15 +802,9 @@ void Executor<densmat_t>::apply_save_density_matrix(
   mat = Base::states_[root.state_index()].reduced_density_matrix(op.qubits,
                                                                  final_op);
 
-  std::vector<bool> copied(Base::num_bind_params_, false);
   for (uint_t i = 0; i < root.num_shots(); i++) {
-    uint_t ip = root.param_index(i);
-    if (!copied[ip]) {
-      (result + ip)
-          ->save_data_average(Base::states_[root.state_index()].creg(),
+    result->save_data_average(Base::states_[root.state_index()].creg(),
                               op.string_params[0], mat, op.type, op.save_type);
-      copied[ip] = true;
-    }
   }
 }
 
@@ -840,29 +834,18 @@ void Executor<densmat_t>::apply_save_state(CircuitExecutor::Branch &root,
   std::string key = (op.string_params[0] == "_method_") ? "density_matrix"
                                                         : op.string_params[0];
 
-  std::vector<bool> copied(Base::num_bind_params_, false);
   if (final_op) {
     auto state = Base::states_[root.state_index()].move_to_matrix();
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      if (!copied[ip]) {
-        (result + ip)
-            ->save_data_average(Base::states_[root.state_index()].creg(), key,
+      result->save_data_average(Base::states_[root.state_index()].creg(), key,
                                 state, OpType::save_densmat, save_type);
-        copied[ip] = true;
-      }
     }
   } else {
     auto state = Base::states_[root.state_index()].copy_to_matrix();
 
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      if (!copied[ip]) {
-        (result + ip)
-            ->save_data_average(Base::states_[root.state_index()].creg(), key,
+      result->save_data_average(Base::states_[root.state_index()].creg(), key,
                                 state, OpType::save_densmat, save_type);
-        copied[ip] = true;
-      }
     }
   }
 }
@@ -875,30 +858,19 @@ void Executor<densmat_t>::apply_save_probs(CircuitExecutor::Branch &root,
   auto probs =
       Base::states_[root.state_index()].qreg().probabilities(op.qubits);
 
-  std::vector<bool> copied(Base::num_bind_params_, false);
   if (op.type == Operations::OpType::save_probs_ket) {
     // Convert to ket dict
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      if (!copied[ip]) {
-        (result + ip)
-            ->save_data_average(
+      result->save_data_average(
                 Base::states_[root.state_index()].creg(), op.string_params[0],
                 Utils::vec2ket(probs, Base::json_chop_threshold_, 16), op.type,
                 op.save_type);
-        copied[ip] = true;
-      }
     }
   } else {
     for (uint_t i = 0; i < root.num_shots(); i++) {
-      uint_t ip = root.param_index(i);
-      if (!copied[ip]) {
-        (result + ip)
-            ->save_data_average(Base::states_[root.state_index()].creg(),
+      result->save_data_average(Base::states_[root.state_index()].creg(),
                                 op.string_params[0], probs, op.type,
                                 op.save_type);
-        copied[ip] = true;
-      }
     }
   }
 }
@@ -917,16 +889,10 @@ void Executor<densmat_t>::apply_save_amplitudes(CircuitExecutor::Branch &root,
     amps_sq[i] =
         Base::states_[root.state_index()].qreg().probability(op.int_params[i]);
   }
-  std::vector<bool> copied(Base::num_bind_params_, false);
   for (uint_t i = 0; i < root.num_shots(); i++) {
-    uint_t ip = root.param_index(i);
-    if (!copied[ip]) {
-      (result + ip)
-          ->save_data_average(Base::states_[root.state_index()].creg(),
+    result->save_data_average(Base::states_[root.state_index()].creg(),
                               op.string_params[0], amps_sq, op.type,
                               op.save_type);
-      copied[ip] = true;
-    }
   }
 }
 

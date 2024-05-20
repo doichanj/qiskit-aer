@@ -33,9 +33,6 @@ protected:
   ClassicalRegister creg_;
   // random generators for shots
   std::vector<RngEngine> shots_;
-  // index of parameter for runtime parameter binding
-  reg_t param_index_;
-  reg_t param_shots_;
 
   // additional operations applied after shot branching
   std::vector<Operations::Op> additional_ops_;
@@ -155,21 +152,6 @@ public:
   // reset shots to initial state
   void reset_branch(void);
 
-  // for runtime parameterization
-  void set_param_index(uint_t ishot, uint_t nshots_per_param);
-  uint_t param_index(uint_t ishot) {
-    if (param_index_.size() == 1) {
-      return param_index_[0];
-    }
-    for (uint_t i = 0; i < param_index_.size(); i++) {
-      if (param_shots_[i] > ishot) {
-        return param_index_[i];
-      }
-    }
-    return 0;
-  }
-  void branch_shots_by_params(void);
-  uint_t num_params(void) { return param_index_.size(); }
 };
 
 void Branch::branch_shots(reg_t &shots, int_t nbranch) {
@@ -180,69 +162,11 @@ void Branch::branch_shots(reg_t &shots, int_t nbranch) {
     branches_[i]->creg_ = creg_;
     branches_[i]->iter_ = iter_;
     branches_[i]->flow_marks_ = flow_marks_;
-
-    if (param_index_.size() > 1) {
-      branches_[i]->param_index_ = param_index_;
-      branches_[i]->param_shots_.resize(param_index_.size());
-      for (uint_t j = 0; j < param_index_.size(); j++)
-        branches_[i]->param_shots_[j] = 0;
-    }
   }
 
   uint_t pos = 0;
   for (uint_t i = 0; i < shots.size(); i++) {
     branches_[shots[i]]->shots_.push_back(shots_[i]);
-
-    if (param_index_.size() > 1) {
-      if (i >= param_shots_[pos])
-        pos++;
-      branches_[shots[i]]->param_shots_[pos]++;
-    }
-  }
-
-  // set parameter indices
-  if (param_index_.size() > 1) {
-    for (int_t i = 0; i < nbranch; i++) {
-      uint_t ppos = 0;
-      while (ppos < branches_[i]->param_index_.size()) {
-        if (branches_[i]->param_shots_[ppos] == 0) {
-          branches_[i]->param_index_.erase(branches_[i]->param_index_.begin() +
-                                           ppos);
-          branches_[i]->param_shots_.erase(branches_[i]->param_index_.begin() +
-                                           ppos);
-        } else {
-          if (ppos > 0) {
-            branches_[i]->param_shots_[ppos] +=
-                branches_[i]->param_shots_[ppos - 1];
-          }
-          ppos++;
-        }
-      }
-    }
-  } else {
-    for (int_t i = 0; i < nbranch; i++)
-      branches_[i]->set_param_index(param_index_[0], 0);
-  }
-}
-
-void Branch::branch_shots_by_params(void) {
-  branches_.resize(param_index_.size());
-
-  for (uint_t i = 0; i < param_index_.size(); i++) {
-    branches_[i] = std::make_shared<Branch>();
-    branches_[i]->creg_ = creg_;
-    branches_[i]->iter_ = iter_;
-    branches_[i]->flow_marks_ = flow_marks_;
-  }
-  uint_t pos = 0;
-  for (uint_t i = 0; i < shots_.size(); i++) {
-    if (i >= param_shots_[pos])
-      pos++;
-    branches_[pos]->shots_.push_back(shots_[i]);
-  }
-
-  for (uint_t i = 0; i < param_index_.size(); i++) {
-    branches_[i]->set_param_index(param_index_[i], 0);
   }
 }
 
@@ -388,8 +312,6 @@ void Branch::remove_empty_branches(void) {
 
   // copy shots to the root
   shots_ = branches_[iroot]->rng_shots();
-  param_index_ = branches_[iroot]->param_index_;
-  param_shots_ = branches_[iroot]->param_shots_;
   creg_ = branches_[iroot]->creg();
   initialize_after_reset_ = branches_[iroot]->initialize_after_reset_;
 
@@ -425,29 +347,6 @@ void Branch::reset_branch(void) {
   additional_ops_.clear();
   branches_.clear();
   flow_marks_.clear();
-}
-
-void Branch::set_param_index(uint_t ishot, uint_t nshots_per_param) {
-  if (nshots_per_param == 0) {
-    param_index_.push_back(ishot);
-    param_shots_.push_back(shots_.size());
-    return;
-  }
-
-  uint_t pos = 0;
-  param_index_.clear();
-  param_shots_.clear();
-
-  param_index_.push_back(ishot / nshots_per_param);
-  for (uint_t i = 1; i < shots_.size(); i++) {
-    uint_t ip = (ishot + i) / nshots_per_param;
-    if (ip != param_index_[pos]) {
-      param_shots_.push_back(i);
-      param_index_.push_back(ip);
-      pos++;
-    }
-  }
-  param_shots_.push_back(shots_.size());
 }
 
 //-------------------------------------------------------------------------
