@@ -29,6 +29,8 @@ namespace AER {
 class ClassicalRegister {
 
 public:
+  ClassicalRegister() {}
+
   ClassicalRegister(ClassicalRegister& src)
   {
     creg_memory_ = src.creg_memory_;
